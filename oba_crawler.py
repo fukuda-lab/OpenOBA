@@ -429,17 +429,17 @@ class OBAMeasurementExperiment:
         # Update browser configuration (use this for per-browser settings)
         for browser_params in browsers_params:
             # Record HTTP Requests and Responses
-            browser_params.http_instrument = False
+            browser_params.http_instrument = True
             # Record cookie changes
             browser_params.cookie_instrument = True
             # Record Navigations
-            browser_params.navigation_instrument = False
+            browser_params.navigation_instrument = True
             # Record JS Web API calls
-            browser_params.js_instrument = False
+            browser_params.js_instrument = True
             # Record the callstack of all WebRequests made
-            browser_params.callstack_instrument = False
+            browser_params.callstack_instrument = True
             # Record DNS resolution
-            browser_params.dns_instrument = False
+            browser_params.dns_instrument = True
 
             browser_params.bot_mitigation = True
 
