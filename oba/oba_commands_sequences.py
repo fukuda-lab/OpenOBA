@@ -4,7 +4,7 @@ import sys
 from typing import Callable, List
 from urllib.parse import urlparse
 
-from bannerclick.config import *
+# from bannerclick.config import TIME_OUT
 from CMPB_commands import CMPBCommand
 
 # CustomBannerInteraction
@@ -15,14 +15,17 @@ from openwpm.command_sequence import (
 )
 from openwpm.commands.browser_commands import GetCommand
 
+TIME_OUT = 60  # OpenWPM timeout = TIME_OUT*11, Selenium timeout = TIME_OUT
+TESTING = True
+CONTROL_SITE_WAIT_REF = 120
+TRAINING_SITE_WAIT_REF = 90
+
 
 def control_site_visit_sequence(
     control_site: str,
     next_site_rank: str = 0,
     clean_run: bool = False,
     cookie_banner_action: int = 0,
-    banner_results_csv_name="./datadir/cookie_banner_results.csv",
-    _test_quick=True,
 ):
     """Returns a command sequence that makes a clean run for a given control_site"""
 
@@ -39,23 +42,33 @@ def control_site_visit_sequence(
         reset=clean_run,
     )
     domain = urlparse(control_site).netloc.split(".")[0]
-    wait_time = 180 + random.randint(60, 120)
+    wait_time = random.randint(int(CONTROL_SITE_WAIT_REF / 2), CONTROL_SITE_WAIT_REF)
     if cookie_banner_action == 0:
         control_site_sequence.append_command(
-            GetCommand(control_site, sleep=wait_time if not clean_run else 5),
-            timeout=wait_time + 120 if not clean_run else TIME_OUT * 11,
+            GetCommand(control_site, sleep=wait_time if not clean_run else 10),
+            timeout=(
+                wait_time + 2 * CONTROL_SITE_WAIT_REF
+                if not clean_run
+                else TIME_OUT * 11
+            ),
         )
     else:
         control_site_sequence.append_command(
             CMPBCommand(
                 control_site,
-                sleep=wait_time if not _test_quick else 5,
-                timeout=wait_time + 60 if not _test_quick else TIME_OUT,
+                sleep=wait_time if not TESTING else 5,
+                timeout=(
+                    wait_time + 2 * CONTROL_SITE_WAIT_REF if not TESTING else TIME_OUT
+                ),
                 index=next_site_rank,
                 choice=cookie_banner_action,
                 # result_csv_file_name=banner_results_csv_name,
             ),
-            timeout=wait_time + 120 if not _test_quick else TIME_OUT * 11,
+            timeout=(
+                wait_time + (CONTROL_SITE_WAIT_REF + TIME_OUT) * 11
+                if not TESTING
+                else TIME_OUT * 11
+            ),
         )
     control_site_sequence.append_command(
         # ScreenshotFullPageCommand("_"), timeout=wait_time
@@ -75,10 +88,9 @@ def individual_training_visit_sequence(
     training_site: str,
     next_site_rank=None,
     sleep: int = 10,
+    # Run for creating the experiment browser profile and directories
     creation: bool = False,
     cookie_banner_action: int = 0,
-    banner_results_csv_name="./datadir/cookie_banner_results.csv",
-    _test_quick=True,
 ):
     """Visits one training_site"""
 
@@ -96,20 +108,20 @@ def individual_training_visit_sequence(
     if creation or cookie_banner_action == 0:
         training_visit_sequence.append_command(
             GetCommand(training_site, sleep=sleep if not creation else 1),
-            timeout=sleep + 180 if not creation else TIME_OUT,
+            timeout=sleep + TIME_OUT if not creation else TIME_OUT,
         )
     # TODO: Probar con distintas choices
     else:
         training_visit_sequence.append_command(
             CMPBCommand(
                 training_site,
-                sleep=sleep if not _test_quick else 5,
+                sleep=sleep if not TESTING else 5,
                 index=next_site_rank,
-                timeout=sleep + 120 if not _test_quick else TIME_OUT,
+                timeout=sleep + TIME_OUT if not TESTING else TIME_OUT,
                 choice=cookie_banner_action,
                 # result_csv_file_name=banner_results_csv_name,
             ),
-            timeout=sleep + 180 if not _test_quick else TIME_OUT * 11,
+            timeout=sleep + TIME_OUT * 10 if not TESTING else TIME_OUT * 11,
         )
 
     return training_visit_sequence
@@ -119,7 +131,6 @@ def training_visits_sequence(
     training_sites: List[str],
     next_site_rank: int,
     cookie_banner_action: int = 0,
-    banner_results_csv_name="./datadir/cookie_banner_results.csv",
 ):
     command_sequences = []
     sites_remaining = training_sites.copy()
@@ -130,7 +141,10 @@ def training_visits_sequence(
         site_to_visit = sites_remaining.pop(random_index)
 
         # Exponential distribution with mean 180 segs
-        wait_time = int(random.expovariate(1 / 180))
+        # wait_time = int(random.expovariate(1 / 180))
+        wait_time = random.randint(
+            int(TRAINING_SITE_WAIT_REF / 2), TRAINING_SITE_WAIT_REF
+        )
 
         command_sequences.append(
             individual_training_visit_sequence(
@@ -151,8 +165,7 @@ def training_visits_sequence(
 def get_cookie_banner_visit_sequences(
     training_pages: list,
     control_pages: list = [],
-    time_for_user: int = 15,
-    banner_results_csv_name="./datadir/cookie_banner_results.csv",
+    sleep_time: int = 5,
 ):
     """One by one, visits all of the training pages and control pages."""
     command_sequences = []
@@ -186,8 +199,8 @@ def get_cookie_banner_visit_sequences(
         visit_sequence.append_command(
             CMPBCommand(
                 site_to_visit,
-                sleep=time_for_user,
                 index=next_site_rank,
+                sleep=sleep_time,
                 # timeout=time_for_user + 120,
                 timeout=TIME_OUT,
                 choice=2,

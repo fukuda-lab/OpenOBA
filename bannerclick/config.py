@@ -60,12 +60,23 @@ urls_file = "customSites.txt"
 # time_dir = datetime.now().date().__str__() + datetime.now().strftime("--%H-%M-%S").__str__() + verbose
 # data_dir = season_dir + time_dir
 
-data_dir = "./datadir/fashion_experiment_reject"
+data_dir = "./datadir/"
 sc_dir = data_dir + "/banner_screenshots/"
 nobanner_sc_dir = sc_dir + "nobanner/"
-sc_file_name = ""
 log_file = data_dir + "/logs.txt"
 banners_log_file = data_dir + "/banners_log.txt"
+
+
+def update_bannerclick_config_paths_with_experiment_name(experiment_name: str):
+    global data_dir, sc_dir, nobanner_sc_dir, log_file, banners_log_file
+    data_dir = "./datadir/" + experiment_name
+    sc_dir = data_dir + "/banner_screenshots/"
+    nobanner_sc_dir = sc_dir + "nobanner/"
+    log_file = data_dir + "/logs.txt"
+    banners_log_file = data_dir + "/banners_log.txt"
+
+
+sc_file_name = ""
 status_codes = ["failed", "timeout", "unreachable", "translated"]
 input_files_dir = "./bannerclick/input-files/"
 

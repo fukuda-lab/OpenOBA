@@ -4,6 +4,7 @@ import random
 import sqlite3
 import sys
 from pathlib import Path
+from typing import Literal, Optional
 
 import aiohttp
 from tqdm import tqdm
@@ -11,7 +12,6 @@ from tranco import Tranco
 
 from .categorizer import Categorizer
 from .enums import IAB_CATEGORIES, TrainingPagesQueries
-from .oba_commands_sequences import get_cookie_banner_visit_sequences
 
 # sys.path.append("../openwpm")
 # from bannerclick.config import WATCHDOG
@@ -45,7 +45,8 @@ class TrainingPagesHandler:
             or webshrinker_credentials.keys() != {"api_key", "secret_key"}
         ):
             raise ValueError(
-                "When using the categorization feature, valid credentials for Webshrinker need to be provided"
+                "When using the categorization feature, valid credentials for"
+                " Webshrinker need to be provided"
             )
         self.n_pages = n_pages
         if webshrinker_credentials:
@@ -58,7 +59,8 @@ class TrainingPagesHandler:
         if custom_list:
             if not custom_pages_list or not list_id:
                 raise ValueError(
-                    "For custom training pages lists, an id for the list and a value for the list of url strings must be provided"
+                    "For custom training pages lists, an id for the list and a value"
+                    " for the list of url strings must be provided"
                 )
             self.training_pages_list = custom_pages_list
             self.list_id = f"custom-{list_id}"
@@ -107,19 +109,17 @@ class TrainingPagesHandler:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute(
-            """
+        cursor.execute("""
         CREATE TABLE IF NOT EXISTS TrainingPages (
             id INTEGER PRIMARY KEY,
             page_url TEXT UNIQUE,
             tranco_rank INTEGER DEFAULT NULL,
-            cookie_banner_found BOOLEAN DEFAULT NULL,
+            cookie_banner_checked	BOOLEAN DEFAULT 0,
+            cookie_banner_presence BOOLEAN DEFAULT NULL,
         )
-        """
-        )
+        """)
 
-        cursor.execute(
-            """
+        cursor.execute("""
         CREATE TABLE IF NOT EXISTS RetrievedCategories (
             id INTEGER PRIMARY KEY,
             training_page_id INTEGER,
@@ -131,13 +131,13 @@ class TrainingPagesHandler:
             confident BOOLEAN,
             FOREIGN KEY(training_page_id) REFERENCES TrainingPages(id)
         )
-        """
-        )
+        """)
 
         for index, page in enumerate(self.training_pages_list):
             if self.custom_list:
                 print(
-                    "Remember that custom pages must include http protocol in the string"
+                    "Remember that custom pages must include http protocol in the"
+                    " string"
                 )
                 # If it is a custom list, we cannot add the tranco_rank to the training page entry
                 try:
@@ -146,14 +146,16 @@ class TrainingPagesHandler:
                     )
                 except sqlite3.IntegrityError:
                     print(
-                        "[DUPLICATE ERROR] Possible that page_url: {page} already exists"
+                        "[DUPLICATE ERROR] Possible that page_url: {page} already"
+                        " exists"
                     )
                     pass
             else:
                 url = "http://" + page
                 try:
                     cursor.execute(
-                        "INSERT INTO TrainingPages (page_url, tranco_rank) VALUES (?, ?)",
+                        "INSERT INTO TrainingPages (page_url, tranco_rank) VALUES"
+                        " (?, ?)",
                         (url, index + 1),
                     )
                 except sqlite3.IntegrityError:
@@ -173,14 +175,12 @@ class TrainingPagesHandler:
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
             # Query to retrieve the list of TrainingPages without categories
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT TrainingPages.page_url
                 FROM TrainingPages
                 LEFT JOIN RetrievedCategories ON TrainingPages.id = RetrievedCategories.training_page_id
                 WHERE RetrievedCategories.id IS NULL
-            """
-            )
+            """)
             result = cursor.fetchall()
             page_urls_without_categories = [row[0] for row in result]
 
@@ -215,7 +215,11 @@ class TrainingPagesHandler:
                                     )
                                     page_id = cursor.fetchone()[0]
                                     cursor.execute(
-                                        "INSERT INTO RetrievedCategories (training_page_id, training_page_url, category, taxonomy, taxonomy_tier, taxonomy_id, confident) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                        "INSERT INTO RetrievedCategories"
+                                        " (training_page_id, training_page_url,"
+                                        " category, taxonomy, taxonomy_tier,"
+                                        " taxonomy_id, confident) VALUES (?, ?, ?, ?,"
+                                        " ?, ?, ?)",
                                         (
                                             page_id,
                                             url,
@@ -231,7 +235,8 @@ class TrainingPagesHandler:
                                 break
                             elif response["status_code"] == 429:
                                 print(
-                                    f"[WARNING] Rate limit exceeded for {url}. Retrying in {delay} seconds..."
+                                    f"[WARNING] Rate limit exceeded for {url}. Retrying"
+                                    f" in {delay} seconds..."
                                 )
                                 await asyncio.sleep(delay)
                                 if delay < 4:
@@ -257,65 +262,112 @@ class TrainingPagesHandler:
         uncategorized_training_pages = _get_uncategorized_pages(self.db_path)
         if len(uncategorized_training_pages) == 0:
             print(
-                "All training pages are already categorized or the list_id + number of pages is incorrect (db_name error)"
+                "All training pages are already categorized or the list_id + number of"
+                " pages is incorrect (db_name error)"
             )
             return
         asyncio.run(
             _async_categorize(self.db_path, request_rate, uncategorized_training_pages)
         )
 
-
     def get_training_pages_grouped_by_category(
-        self, k: int = 10, confident: bool = None, cookie_banner_found: bool = None
+        self,
+        k: int = 10,
+        confident: bool = None,
+        # This argument is for pages that have been crawled for cookie banner presence (1. True if it was checked, 2. False if it wasn't checked, 3. None for both cases)
+        cookie_banner_checked: bool = None,
+        # This argument is for the value of the cookie banner presence (1. True if it was checked and a cookie banner was found, 2. False if it was checked and cookie banner wasn't found, 3. None for both cases)
+        cookie_banner_presence: bool = None,
     ):
-        """Returns at most the k most popular pages by category given they are already categorized in the database (by id). Can be filtered by confident and cookie_banner_found"""
+        """Returns at most the k most popular pages by category given they are already categorized in the database (by id). Can be filtered by confident and cookie_banner_presence"""
         print(self.db_path)
-        
-        # CONNECT TO DATABASE
-        confident = 1 if confident else 0
-        cookie_banner_found = 1 if cookie_banner_found else 0
+
+        if (
+            not cookie_banner_checked or cookie_banner_checked is None
+        ) and cookie_banner_presence is not None:
+            raise ValueError(
+                "When filtering by cookie_banner_presence, cookie_banner_checked must"
+                " be true, since it is the only way to know if the page has been"
+                " crawled for cookie banner presence"
+            )
 
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
-        # Case both filters
-        if cookie_banner_found != None and confident != None:
-            query = TrainingPagesQueries.SelectTrainingPagesWithCategoryBothFilters
-            
-        # Case confident filter but no cookie_banner
-        elif cookie_banner_found == None and confident != None:
-            query = TrainingPagesQueries.SelectTrainingPagesWithCategoryConfidentFilter
-            
-        # Case cookie banner filter but no confident
-        elif cookie_banner_found != None and confident == None:
-            query = TrainingPagesQueries.SelectTrainingPagesWithCategoryCookieBannerFilter
-            
-        # Case no filter
-        elif cookie_banner_found == None and confident == None:
-            query = TrainingPagesQueries.SelectTrainingPagesWithCategoryNoFilter
-        
+
+        if confident is not None:
+            # Case confident filter activated:
+            if cookie_banner_checked is not None:
+                # Case confident and cookie banner checked filter activated
+                if cookie_banner_presence is not None:
+                    # Case confident, cookie banner checked and cookie banner found filter activated (all filters)
+                    query = (
+                        TrainingPagesQueries.SelectTrainingPagesWithCategoryAllFilters
+                    )
+                else:
+                    # Case ONLY confident and cookie banner checked filter activated
+                    query = (
+                        TrainingPagesQueries.SelectTrainingPagesWithCategoryConfidentAndCBCheckedFilter
+                    )
+            else:
+                # Case ONLY confident filter activated
+                query = (
+                    TrainingPagesQueries.SelectTrainingPagesWithCategoryConfidentFilter
+                )
+        else:
+            # Case confident filter NOT activated:
+            if cookie_banner_checked is not None:
+                # Case cookie banner checked filter activated
+                if cookie_banner_presence is not None:
+                    # Case cookie banner checked and cookie banner found filter activated (both cookie banner filters, no confident filter)
+                    query = (
+                        TrainingPagesQueries.SelectTrainingPagesWithCategoryCBCheckedAndPresenceFilter
+                    )
+                else:
+                    # Case ONLY cookie banner checked filter activated
+                    query = (
+                        TrainingPagesQueries.SelectTrainingPagesWithCategoryCBCheckedFilter
+                    )
+            else:
+                # Case NO filter activated
+                query = TrainingPagesQueries.SelectTrainingPagesWithCategoryNoFilter
+
+        # VALUES TO SQLITE BOOLEANS AND CONNECT TO DATABASE
+        confident = 1 if confident else 0
+        cookie_banner_checked = 1 if cookie_banner_checked else 0
+        cookie_banner_presence = 1 if cookie_banner_presence else 0
+
         # Execute query
         cursor.execute(
             query,
             {
-            "k": k,
-            "confident": confident,
-            "cookie_banner_found": cookie_banner_found,
-            }
+                "k": k,
+                "confident": confident,
+                "cookie_banner_checked": cookie_banner_checked,
+                "cookie_banner_presence": cookie_banner_presence,
+            },
         )
-        
+
         rows = cursor.fetchall()
         # Close connection
         conn.close()
 
         # Build dict with key = category, value = dict with keys = category, top_lowest_id_pages, top_page_urls, total_pages
-        categories_dict = {}
+        categories_dict = {
+            category_t2_name: {
+                "pages_urls": [],
+                "pages_ids": [],
+            }
+            for category_t1_dict in IAB_CATEGORIES.values()
+            for category_t2_name in category_t1_dict.values()
+        }
         for row in rows:
             categories_dict[row[0]] = {
                 "pages_urls": row[2].strip().split(", "),
-                "pages_ids": [int(training_page_id) for training_page_id in row[1].strip().split(", ")],
+                "pages_ids": [
+                    int(training_page_id)
+                    for training_page_id in row[1].strip().split(", ")
+                ],
             }
-
         return categories_dict
 
     def generate_training_pages_summary(self):
@@ -330,35 +382,53 @@ class TrainingPagesHandler:
         print(f"Total training pages: {total_training_pages}")
 
         # Fetch the number of categorized training pages
-        cursor.execute(
-            """
+        cursor.execute("""
         SELECT COUNT(DISTINCT training_page_id)
         FROM RetrievedCategories
-        """
-        )
+        """)
         total_categorized_pages = cursor.fetchone()[0]
         print(f"Total categorized training pages: {total_categorized_pages}")
 
         # Fetch a few categorized pages as samples
-        cursor.execute(
-            """
+        cursor.execute("""
         SELECT id, training_page_url, category, 
             taxonomy, taxonomy_tier, taxonomy_id,
             confident, training_page_id
         FROM RetrievedCategories
         ORDER BY category
-        """
-        )
+        """)
         samples = cursor.fetchall()
 
         print("\nSample categorized pages:")
         for sample in samples:
             print(
-                f"ID: {sample[0]}\nURL: {sample[1]}\nCategory: {sample[2]}\nTaxonomy: {sample[3]}\nTaxonomy Tier: {sample[4]}\n"
+                f"ID: {sample[0]}\nURL: {sample[1]}\nCategory: {sample[2]}\nTaxonomy:"
+                f" {sample[3]}\nTaxonomy Tier: {sample[4]}\n"
             )
 
         # Close the connection
         conn.close()
+
+    def _validate_urls_in_db(self, page_urls):
+        # Fetch
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT 
+                page_url 
+            FROM 
+                TrainingPages
+            """)
+        rows = cursor.fetchall()
+        conn.close()
+
+        # Build list of URLs
+        urls = [row[0] for row in rows]
+
+        # Validate URLs are in the database
+        for url in page_urls:
+            if url not in urls:
+                raise ValueError(f"URL {url} not found in database")
 
 
 # API_KEY = 'GhU39K7bdfvdxRlcnEkT'

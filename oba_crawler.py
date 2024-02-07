@@ -5,35 +5,34 @@ import signal
 import sqlite3
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Literal, TypedDict
 
-from bannerclick.config import *
+from bannerclick.config import (
+    update_bannerclick_config_paths_with_experiment_name,
+    WATCHDOG,
+)
 from oba.enums import (
     IAB_CATEGORIES,
     CustomPagesParams,
     GenericQueries,
     TrancoPagesParams,
     WebShrinkerCredentials,
+    OBACommandsSequencesFunctions,
 )
-from oba.oba_commands_sequences import (
-    control_site_visit_sequence,
-    get_cookie_banner_visit_sequences,
-    individual_training_visit_sequence,
-    training_visits_sequence,
-)
+
 from oba.training_pages_handler import TrainingPagesHandler
 from openwpm.config import BrowserParams, ManagerParams
 from openwpm.storage.sql_provider import SQLiteStorageProvider
 from openwpm.task_manager import TaskManager
-
-# from bannerclick.config import WATCHDOG, OFFSET_ACCEPT, OFFSET_REJECT
 
 # COMMAND: nohup python oba_crawler.py > {experiment_name}.log 2>&1 &
 # COMMAND: nohup python oba_crawler.py > logs/fashion_uk_accept_cookies.log 2>&1 &
 
 LATEST_CATEGORIZED_TRANCO_LIST_ID = "V929N"
 DEFAULT_N_PAGES = 10000
+EXPOVAR_MEAN = 180
 # LATEST_CATEGORIZED_TRANCO_LIST_ID = "N7WQW" #Previous
 # DEFAULT_N_PAGES = 5000 # Previous
 
@@ -44,15 +43,40 @@ class OBAMeasurementExperiment:
         self,
         experiment_name: str,
         fresh_experiment: bool,
-        do_clean_runs: bool = False,
+        do_clean_runs: bool = True,
+        # 0 do nothing, 1 accept, 2 reject
         cookie_banner_action: Literal[0, 1, 2] = 0,
         use_custom_pages: bool = False,
-        # 0 do nothing, 1 accept, 2 reject
         tranco_pages_params: TrancoPagesParams = None,
         custom_pages_params: CustomPagesParams = None,
         webshrinker_credentials: WebShrinkerCredentials = None,
+        # Display mode for the OBA browser
+        display_mode: Literal["headless", "native"] = "headless",
     ):
         self.start_time = time.time()
+        self.experiment_name = experiment_name
+        # Importing 'oba_commands_sequences' dynamically after setting 'experiment_name'.
+        # This ensures that any paths or configurations influenced by 'experiment_name' in 'oba_commands_sequences'
+        # and its dependent modules (like 'CMPB_commands', which imports 'config.py') are correctly initialized.
+        update_bannerclick_config_paths_with_experiment_name(experiment_name)
+        from oba.oba_commands_sequences import (
+            control_site_visit_sequence,
+            get_cookie_banner_visit_sequences,
+            individual_training_visit_sequence,
+            training_visits_sequence,
+        )
+
+        self._dynamically_imported = OBACommandsSequencesFunctions
+        self._dynamically_imported.control_site_visit_sequence = (
+            control_site_visit_sequence
+        )
+        self._dynamically_imported.get_cookie_banner_visit_sequences = (
+            get_cookie_banner_visit_sequences
+        )
+        self._dynamically_imported.individual_training_visit_sequence = (
+            individual_training_visit_sequence
+        )
+        self._dynamically_imported.training_visits_sequence = training_visits_sequence
 
         # Setup transversal values
         if fresh_experiment and not use_custom_pages and not tranco_pages_params:
@@ -60,23 +84,24 @@ class OBAMeasurementExperiment:
             tranco_pages_params = {
                 "updated": False,
             }
-        self.experiment_name = experiment_name
+
         self.data_dir = f"./datadir/{self.experiment_name}/"
+
         self.fresh_experiment = fresh_experiment
         self.custom_pages = use_custom_pages
         self.cookie_banner_action = cookie_banner_action
         self.do_clean_runs = do_clean_runs
         # Use experiment name here?
-        self.banner_results_filename = f"./datadir/cookie_banner_results.csv"
+        # self.banner_results_filename = f"./datadir/cookie_banner_results.csv"
 
         # Sites where ads could be captured from
         # TODO: provide the option of a custom_list of control_pages
         self.control_pages = [
-            # "http://www.accuweather.com/",
             # "http://www.wunderground.com/",
             # "http://www.localconditions.com/",
             "http://myforecast.com/",
             "http://www.weatherbase.com/",
+            "http://www.accuweather.com/",
             # "http://cnn.com",
             # "http://usatoday.com",
             # "http://cbsnews.com",
@@ -197,29 +222,25 @@ class OBAMeasurementExperiment:
 
         # Create or connect browser profile
         self.NUM_BROWSERS = 2
-        if fresh_experiment and self.cookie_banner_action == 2:
-            # If we are going to reject cookies, we need to use native mode for the experiment creation run to reject the cookies manually
-            browser_display_mode = "native"
-        else:
-            browser_display_mode = "headless"
 
         self.manager_params, self.browser_params = self._task_manager_config(
             save_or_load_profile,
-            browser_display_mode=browser_display_mode,
+            browser_display_mode=display_mode,
         )
 
         # Catch Signals
-        signal.signal(signal.SIGINT, self.signal_handler)
-        signal.signal(signal.SIGTERM, self.signal_handler)
+        # signal.signal(signal.SIGINT, self.signal_handler)
+        # signal.signal(signal.SIGTERM, self.signal_handler)
 
     def set_training_pages_by_category(
         self,
         category: str,
         size: int = 10,
         confident: bool = None,
-        cookie_banner_found: bool = None,
+        cookie_banner_checked: bool = False,
+        cookie_banner_presence: bool = None,
     ):
-        # TODO: run to fill cookie_banner_found column in cached tranco db? (10k pages)
+        # TODO: run to fill cookie_banner_checked column in cached tranco db? (10k pages)
         """Not needed in case of uncategorized custom pages. Sets the training pages for the experiment according to the category given. If no category is given, the user is prompted to pick one from the supported categories."""
         if not self.pages_categorized:
             # Case for custom_pages_list that was not categorized
@@ -257,8 +278,8 @@ class OBAMeasurementExperiment:
 
         # TODO: extend taxonomy
         training_pages_dict = (
-            self.training_pages_handler.get_training_pages_by_category(
-                size, confident, cookie_banner_found
+            self.training_pages_handler.get_training_pages_grouped_by_category(
+                size, confident, cookie_banner_checked, cookie_banner_presence
             )
         )
         self.training_pages = training_pages_dict[category]["pages_urls"]
@@ -275,7 +296,7 @@ class OBAMeasurementExperiment:
         the clean_sequence with an independant browser for each control_site to then gather all the contextual and static ads
 
         - Folders: '{experiment_name}/static_ads/' '{experiment_name}/oba_ads/' in 'datadir/'
-            # TODO: consider doing it also for 'results'
+            TODO: consider doing it also for 'results'
         - Files: file for profile of the OBA browser, to be able to resume the crawling with the same profile.
                 source pages of static ads.
         """
@@ -288,18 +309,22 @@ class OBAMeasurementExperiment:
         # Make clean runs
         if do_a_clean_run:
             for control_site in self.control_pages:
-                command_sequence = control_site_visit_sequence(
-                    control_site, clean_run=True
+                command_sequence = (
+                    self._dynamically_imported.control_site_visit_sequence(
+                        control_site, clean_run=True
+                    )
                 )
                 manager.execute_command_sequence(command_sequence, index=0)
             # [TESTING] JUST FOR TESTING, ONLY 1 CLEAN VISIT RUN
-            # command_sequence = control_site_visit_sequence(self.control_pages[0], clean_run=True)
+            # command_sequence = self._dynamically_imported.control_site_visit_sequence(self.control_pages[0], clean_run=True)
             # manager.execute_command_sequence(command_sequence, index=0)
 
         # Create the training browser profile
         # This command sequence needs that the profile_archive_dir is set in the browser parameters. (_task_manager_config)
-        browser_creation = individual_training_visit_sequence(
-            random.choice(self.training_pages), creation=True, sleep=5
+        browser_creation = (
+            self._dynamically_imported.individual_training_visit_sequence(
+                random.choice(self.training_pages), creation=True, sleep=1
+            )
         )
         manager.execute_command_sequence(browser_creation, index=1)
 
@@ -356,13 +381,15 @@ class OBAMeasurementExperiment:
             # TODO: Implement that if error is caught and the crawling has been running for long, save the profile before closing to not lose the data saved in SQLite of that run
             error_run_message = f"Error during run after "
             self._write_cleanup_message(error_run_message, exception_message=exc)
+            # Throw error again to be able to see it in the nohup log
+            raise exc
 
-    @staticmethod
-    def signal_handler(sig, frame):
-        # Access the instance via the frame's local variables
-        instance = frame.f_locals["self"]
-        instance.signal_cleanup()
-        sys.exit(0)
+    # @staticmethod
+    # def signal_handler(sig, frame):
+    #     # Access the instance via the frame's local variables
+    #     instance = frame.f_locals["self"]
+    #     # instance.signal_cleanup()
+    #     sys.exit(0)
 
     def _write_cleanup_message(self, log_message_phrase, exception_message=""):
         """Private method to be called when the experiment is terminated writing the runtime to the runtime_log.txt file"""
@@ -371,13 +398,17 @@ class OBAMeasurementExperiment:
         minutes, seconds = divmod(remainder, 60)
         runtime_string = f"{int(hours)}:{int(minutes)}:{int(seconds)}"
         log_message = f"{log_message_phrase} {runtime_string}.\n"
+        time_str = (
+            datetime.now().date().__str__()
+            + datetime.now().strftime("--%H-%M-%S").__str__()
+        )
         with open(self.data_dir + "runtime_log.txt", "a") as f:
-            f.write(f"{log_message}\n{exception_message}")
+            f.write(f"[{time_str}]{log_message}\n{exception_message}")
 
-    def signal_cleanup(self):
-        log_message = f"Terminating signal received after "
-        self._write_cleanup_message(log_message)
-        print("Runtime logfile updated.")
+    # def signal_cleanup(self):
+    #     log_message = f"Terminating signal received after "
+    #     self._write_cleanup_message(log_message)
+    #     print("Runtime logfile updated.")
 
     def _task_manager_config(
         self, save_or_load_profile: str, browser_display_mode="headless"
@@ -397,9 +428,9 @@ class OBAMeasurementExperiment:
             # Record HTTP Requests and Responses
             browser_params.http_instrument = False
             # Record cookie changes
-            browser_params.cookie_instrument = False
+            browser_params.cookie_instrument = True
             # Record Navigations
-            browser_params.navigation_instrument = True
+            browser_params.navigation_instrument = False
             # Record JS Web API calls
             browser_params.js_instrument = False
             # Record the callstack of all WebRequests made
@@ -488,25 +519,30 @@ class OBAMeasurementExperiment:
                 # TRAINING
                 amount_of_pages = random.randint(1, 3)
                 training_sample = random.sample(self.training_pages, amount_of_pages)
-                sequence_list = training_visits_sequence(
+                sequence_list = self._dynamically_imported.training_visits_sequence(
                     training_sample,
                     next_site_rank,
                     cookie_banner_action=self.cookie_banner_action,
-                    banner_results_csv_name=self.banner_results_filename,
+                    # banner_results_csv_name=self.banner_results_filename,
                 )
             else:
                 # CONTROL
                 # If we start having more than one control visit sequence in this list, we must fix next_site_rank
                 sequence_list = [
-                    control_site_visit_sequence(
+                    self._dynamically_imported.control_site_visit_sequence(
                         random.choice(self.control_pages),
                         next_site_rank,
                         cookie_banner_action=self.cookie_banner_action,
-                        banner_results_csv_name=self.banner_results_filename,
+                        # banner_results_csv_name=self.banner_results_filename,
                     )
                 ]
+            # print("GOT SEQUENCE LIST: ", sequence_list)
             next_site_rank += len(sequence_list)
             for command_sequence in sequence_list:
+                # Wait exponential distribution between command sequences
+                wait_time = int(random.expovariate(1 / EXPOVAR_MEAN))
+                print(f"Waiting {wait_time} seconds before next command sequence")
+                time.sleep(wait_time)
                 manager.execute_command_sequence(command_sequence, index=1)
 
     def _read_experiment_config_json(self):
@@ -524,87 +560,15 @@ class OBAMeasurementExperiment:
                 " exist."
             )
 
-    def crawl_to_reject_cookies_manually(self):
-        """Crawl each training + control page once in native mode to manually reject the cookies and save the profile to be used in the experiment."""
-        # Note: We will treat this starting the experiment (so it is not fresh anymore)
-
-        if not self.fresh_experiment:
-            raise RuntimeError(
-                "Experiment must be fresh to crawl to reject cookies manually, it must"
-                " be done before starting the experiment"
-            )
-
-        try:
-            # Manager context to start the crawling
-            with TaskManager(
-                self.manager_params,
-                self.browser_params,
-                SQLiteStorageProvider(Path(self.data_dir + "crawl-data.sqlite")),
-                None,
-            ) as manager:
-                self._get_and_create_experiment_config_json(manager)
-
-                # It is a fresh experiment, so we need to create the folders and create the training browser profile
-                self._fresh_experiment_setup_and_clean_run(
-                    manager, do_a_clean_run=False
-                )
-
-                print(
-                    "Launching crawler expecting the user to manually reject cookies"
-                    " in the training + control pages... \n Pages to visit"
-                    f" {len(self.training_pages) + len(self.control_pages)} \n"
-                )
-                # Get all the command sequences to crawl the training pages and control pages
-                reject_cookies_command_sequences = get_cookie_banner_visit_sequences(
-                    self.training_pages, self.control_pages
-                )
-                for command_sequence in reject_cookies_command_sequences:
-                    # Crawl each page in the browser that is going to be the OBA one
-                    manager.execute_command_sequence(command_sequence, index=1)
-
-                # TODO: Close non-OBA browser (index=0) in case it was open
-
-                # This logs an ERROR
-                manager.close()
-
-            successful_run_message = f"Successful run finished after "
-            self._write_cleanup_message(successful_run_message)
-
-        except:
-            # TODO: Implement that if error is caught and the crawling has been running for long, save the profile before closing to not lose the data saved in SQLite of that run
-            error_run_message = f"Error during run after "
-            self._write_cleanup_message(error_run_message)
-
-    def write_bannerclick_finding_on_pages(self, page_urls: list):
+    def run_and_save_bannerclick_finding_on_pages(self, page_urls: list = None):
         """With an openWPM crawler, visits a set of pages from the training_pages_db selected and updates with the presence / abscence of cookie banner accordingly."""
 
-        def _validate_urls_in_db(page_urls):
-            # Fetch
-            conn = sqlite3.connect(self.training_pages_handler.db_path)
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT 
-                    page_url 
-                FROM 
-                    TrainingPages
-                """)
-            rows = cursor.fetchall()
-            conn.close()
-
-            # Build list of URLs
-            urls = [row[0] for row in rows]
-
-            # Validate URLs are in the database
-            for url in page_urls:
-                if url not in urls:
-                    raise ValueError(f"URL {url} not found in database")
+        if page_urls == None and not self.custom_pages:
+            # We can only use the training pages if we know they are loaded from tranco because we access its sqlite database
+            page_urls = self.training_pages
 
         # Validate URLs are in the database
-        _validate_urls_in_db(page_urls)
-
-        # Create a connection and cursor
-        conn = sqlite3.connect(self.training_pages_handler.db_path)
-        cursor = conn.cursor()
+        self.training_pages_handler._validate_urls_in_db(page_urls)
 
         # Params for openWPM crawler
         manager_params = ManagerParams(num_browsers=1)
@@ -615,7 +579,7 @@ class OBAMeasurementExperiment:
             # Record HTTP Requests and Responses
             browser_params.http_instrument = False
             # Record cookie changes
-            browser_params.cookie_instrument = False
+            browser_params.cookie_instrument = True
             # Record Navigations
             browser_params.navigation_instrument = True
             # Record JS Web API calls
@@ -641,14 +605,11 @@ class OBAMeasurementExperiment:
         manager_params.failure_limit = 100000
 
         # Get crawler_database path
-        crawl_db_path = "./oba/datadir_training_pages/_crawls/crawl-data.sqlite"
-
-        # Create csv file to save the results
-        with open(self.banner_results_filename, "w") as f:
-            f.write(f"site_url,cookie_banner\n")
+        crawl_db_path = (
+            f"./oba/datadir_training_pages/_crawls/{self.experiment_name}.sqlite"
+        )
 
         try:
-
             with TaskManager(
                 manager_params,
                 browsers_params,
@@ -656,9 +617,8 @@ class OBAMeasurementExperiment:
                 None,
             ) as manager:
                 bannerclick_cookie_banner_command_sequences = (
-                    get_cookie_banner_visit_sequences(
+                    self._dynamically_imported.get_cookie_banner_visit_sequences(
                         training_pages=page_urls,
-                        banner_results_csv_name=self.banner_results_filename,
                     )
                 )
                 for command_sequence in bannerclick_cookie_banner_command_sequences:
@@ -666,45 +626,103 @@ class OBAMeasurementExperiment:
 
                 manager.close()
 
-            # Read csv file and update database
-            with open(self.banner_results_filename, "r") as f:
-                lines = f.readlines()
-                for line in lines[1:]:
-                    page_url, cookie_banner = line.split(",")
-                    cursor.execute(
-                        """
-                        UPDATE 
-                            TrainingPages
-                        SET 
-                            cookie_banner_found = :found
-                        WHERE
-                            page_url = :page_url
-                        """,
-                        {"found": int(cookie_banner), "page_url": page_url},
+            self.update_training_pages_db_with_cookie_banner_presence(page_urls)
+
+        except Exception as exc:
+            print(exc)
+            self.update_training_pages_db_with_cookie_banner_presence(page_urls)
+            raise exc
+
+    def update_training_pages_db_with_cookie_banner_presence(self, page_urls):
+        # Get crawler_database path
+        crawl_db_path = (
+            f"./oba/datadir_training_pages/_crawls/{self.experiment_name}.sqlite"
+        )
+
+        # Move to enums probably
+        select_query = "SELECT banners FROM visits WHERE url = :page_url"
+        update_query = """
+            UPDATE TrainingPages
+            SET cookie_banner_checked = 1, cookie_banner_presence = :cookie_banner_presence
+            WHERE page_url = :page_url
+        """
+
+        with sqlite3.connect(
+            self.training_pages_handler.db_path
+        ) as conn, sqlite3.connect(crawl_db_path) as crawl_db_conn:
+            cursor = conn.cursor()
+            crawl_db_cursor = crawl_db_conn.cursor()
+
+            for page_url in page_urls:
+                # Execute the SELECT query
+                crawl_db_cursor.execute(select_query, {"page_url": page_url})
+                result = crawl_db_cursor.fetchone()
+                cookie_banner_presence = int(result[0]) > 0 if result else False
+
+                # Execute the UPDATE query only if needed
+                cursor.execute(
+                    update_query,
+                    {
+                        "cookie_banner_presence": 1 if cookie_banner_presence else 0,
+                        "page_url": page_url,
+                    },
+                )
+
+            # Commit the changes after the loop completes
+            conn.commit()
+
+    def _crawl_to_reject_cookies_manually(self):
+        """[After updating to bannerclick v0.21 this method seems less relevant] Crawl each training + control page once in native mode to manually reject the cookies and save the profile to be used in the experiment."""
+        # Note: We will treat this starting the experiment (so it is not fresh anymore)
+
+        if not self.fresh_experiment:
+            raise RuntimeError(
+                "Experiment must be fresh to crawl to reject cookies manually, it must"
+                " be done before starting the experiment"
+            )
+
+        try:
+            # Manager context to start the crawling
+            with TaskManager(
+                self.manager_params,
+                self.browser_params,
+                SQLiteStorageProvider(Path(self.data_dir + "crawl-data.sqlite")),
+                None,
+            ) as manager:
+                self._get_and_create_experiment_config_json(manager)
+
+                # It is a fresh experiment, so we need to create the folders and create the training browser profile
+                self._fresh_experiment_setup_and_clean_run(
+                    manager, do_a_clean_run=self.do_clean_runs
+                )
+
+                print(
+                    "Launching crawler expecting the user to manually reject cookies"
+                    " in the training + control pages... \n Pages to visit"
+                    f" {len(self.training_pages) + len(self.control_pages)} \n"
+                )
+                # Get all the command sequences to crawl the training pages and control pages
+                reject_cookies_command_sequences = (
+                    self._dynamically_imported.get_cookie_banner_visit_sequences(
+                        self.training_pages, self.control_pages
                     )
-                    conn.commit()
+                )
+                for command_sequence in reject_cookies_command_sequences:
+                    # Crawl each page in the browser that is going to be the OBA one
+                    manager.execute_command_sequence(command_sequence, index=1)
+
+                # TODO: Close non-OBA browser (index=0) in case it was open
+
+                # This logs an ERROR
+                manager.close()
+
+            successful_run_message = f"Successful run finished after "
+            self._write_cleanup_message(successful_run_message)
 
         except:
-            # Read csv file and update database
-            with open(self.banner_results_filename, "r") as f:
-                lines = f.readlines()
-                for line in lines[1:]:
-                    page_url, cookie_banner = line.split(",")
-                    cursor.execute(
-                        """
-                        UPDATE 
-                            TrainingPages
-                        SET 
-                            cookie_banner_found = :found
-                        WHERE
-                            page_url = :page_url
-                        """,
-                        {"found": int(cookie_banner), "page_url": page_url},
-                    )
-                    conn.commit()
-            conn.close()
-
-        conn.close()
+            # TODO: Implement that if error is caught and the crawling has been running for long, save the profile before closing to not lose the data saved in SQLite of that run
+            error_run_message = f"Error during run after "
+            self._write_cleanup_message(error_run_message)
 
 
 # # TODO: create a folder to add the logs that are saved whenever nohup is run with filename {exp_name}.log

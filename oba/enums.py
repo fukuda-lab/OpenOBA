@@ -1,5 +1,43 @@
 from enum import Enum
-from typing import TypedDict
+from typing import List, TypedDict
+
+
+class OBACommandsSequencesFunctions(Enum):
+    """These functions are the functions correspond to the functions defined in oba_commands_sequences.py"""
+
+    def control_site_visit_sequence(
+        control_site: str,
+        next_site_rank: str = 0,
+        clean_run: bool = False,
+        cookie_banner_action: int = 0,
+        _test_quick=True,
+    ):
+        pass
+
+    def individual_training_visit_sequence(
+        training_site: str,
+        next_site_rank=None,
+        sleep: int = 10,
+        creation: bool = False,
+        cookie_banner_action: int = 0,
+        _test_quick=True,
+    ):
+        pass
+
+    def training_visits_sequence(
+        training_sites: List[str],
+        next_site_rank: int,
+        cookie_banner_action: int = 0,
+    ):
+        pass
+
+    def get_cookie_banner_visit_sequences(
+        training_pages: list,
+        control_pages: list = [],
+        time_for_user: int = 15,
+    ):
+        pass
+
 
 class WebShrinkerCredentials(TypedDict):
     api_key: str
@@ -29,7 +67,10 @@ class CleanBrowserQueries:
     def __init__(self, browser_id):
         self.browser_id = browser_id
 
-        self.CleanRunVisitsQuery = f"SELECT site_url, visit_id FROM site_visits WHERE browser_id = '{self.browser_id}';"
+        self.CleanRunVisitsQuery = (
+            "SELECT site_url, visit_id FROM site_visits WHERE browser_id ="
+            f" '{self.browser_id}';"
+        )
 
 
 class OBABrowserQueries:
@@ -40,13 +81,20 @@ class OBABrowserQueries:
 
     def get_visit_rows_per_control_site_query(self, control_site_url: str):
         """Given a control site url, returns a list of tuples with (site_url, visit_id);"""
-        return f"SELECT site_url, visit_id, site_rank FROM site_visits WHERE browser_id = {self.browser_id} AND site_url = '{control_site_url}' ORDER BY site_rank;"
+        return (
+            "SELECT site_url, visit_id, site_rank FROM site_visits WHERE browser_id ="
+            f" {self.browser_id} AND site_url = '{control_site_url}' ORDER BY"
+            " site_rank;"
+        )
 
 
 class ControlVisitsQueries:
     """Queries for the ControlVisits tables"""
 
-    InsertControlVisit = "INSERT INTO ControlVisits (visit_id, browser_id, site_url, site_rank) VALUES (?, ?, ?, ?)"
+    InsertControlVisit = (
+        "INSERT INTO ControlVisits (visit_id, browser_id, site_url, site_rank) VALUES"
+        " (?, ?, ?, ?)"
+    )
 
 
 class AdvertisementsQueries:
@@ -59,13 +107,19 @@ class AdvertisementsQueries:
 class ControlVisitAdsQueries:
     """Queries for the Advertisements tables"""
 
-    InsertControlVisitAdQuery = "INSERT INTO ControlVisitAds (control_visit_id, control_site_url, control_site_rank, ad_id, landing_url, ad_href_url) VALUES (?, ?, ?, ?, ?, ?)"
+    InsertControlVisitAdQuery = (
+        "INSERT INTO ControlVisitAds (control_visit_id, control_site_url,"
+        " control_site_rank, ad_id, landing_url, ad_href_url) VALUES (?, ?, ?, ?, ?, ?)"
+    )
 
 
 class AdvertisementsCategoriesQueries:
     """Queries for the AdvertisementsCategoriesQueries tables"""
 
-    InsertAdCategoryQuery = "INSERT INTO AdvertisementsCategories (ad_id, landing_url, category, taxonomy, taxonomy_tier, taxonomy_id, confident) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    InsertAdCategoryQuery = (
+        "INSERT INTO AdvertisementsCategories (ad_id, landing_url, category, taxonomy,"
+        " taxonomy_tier, taxonomy_id, confident) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    )
 
 
 class TrainingPagesQueries:
@@ -127,8 +181,8 @@ class TrainingPagesQueries:
             ORDER BY
                 COUNT(id) DESC;
             """
-            
-    SelectTrainingPagesWithCategoryConfidentFilter = """
+
+    SelectTrainingPagesWithCategoryCBCheckedFilter = """
             WITH FilteredPages AS (
                 SELECT 
                     RC.category,
@@ -140,7 +194,7 @@ class TrainingPagesQueries:
                 JOIN 
                     TrainingPages TP ON RC.training_page_id = TP.id
                 WHERE 
-                    TP.cookie_banner_found =  :cookie_banner_found
+                    TP.cookie_banner_checked =  :cookie_banner_checked
             )
             SELECT 
                 category,
@@ -157,7 +211,7 @@ class TrainingPagesQueries:
                 COUNT(id) DESC;
             """
 
-    SelectTrainingPagesWithCategoryBothFilters = """
+    SelectTrainingPagesWithCategoryConfidentAndCBCheckedFilter = """
             WITH FilteredPages AS (
                 SELECT 
                     RC.category,
@@ -171,7 +225,71 @@ class TrainingPagesQueries:
                 WHERE 
                     RC.confident = :confident
                 AND
-                    TP.cookie_banner_found =  :cookie_banner_found
+                    TP.cookie_banner_checked =  :cookie_banner_checked
+            )
+            SELECT 
+                category,
+				GROUP_CONCAT(CASE WHEN rn <= :k THEN id END, ', ') AS top_page_ids,
+                GROUP_CONCAT(CASE WHEN rn <= :k THEN page_url END, ', ') AS top_page_urls,
+                COUNT(id) AS total_pages
+            FROM 
+                FilteredPages
+            WHERE 
+                rn <= :k
+            GROUP BY 
+                category
+            ORDER BY
+                COUNT(id) DESC;
+            """
+
+    SelectTrainingPagesWithCategoryCBCheckedAndPresenceFilter = """
+            WITH FilteredPages AS (
+                SELECT 
+                    RC.category,
+                    TP.id,
+                    TP.page_url,
+                    ROW_NUMBER() OVER (PARTITION BY RC.category ORDER BY TP.id ASC) as rn
+                FROM 
+                    RetrievedCategories RC
+                JOIN 
+                    TrainingPages TP ON RC.training_page_id = TP.id
+                WHERE 
+                    TP.cookie_banner_checked =  :cookie_banner_checked
+                AND
+                    TP.cookie_banner_presence =  :cookie_banner_presence
+            )
+            SELECT 
+                category,
+				GROUP_CONCAT(CASE WHEN rn <= :k THEN id END, ', ') AS top_page_ids,
+                GROUP_CONCAT(CASE WHEN rn <= :k THEN page_url END, ', ') AS top_page_urls,
+                COUNT(id) AS total_pages
+            FROM 
+                FilteredPages
+            WHERE 
+                rn <= :k
+            GROUP BY 
+                category
+            ORDER BY
+                COUNT(id) DESC;
+            """
+
+    SelectTrainingPagesWithCategoryAllFilters = """
+            WITH FilteredPages AS (
+                SELECT 
+                    RC.category,
+                    TP.id,
+                    TP.page_url,
+                    ROW_NUMBER() OVER (PARTITION BY RC.category ORDER BY TP.id ASC) as rn
+                FROM 
+                    RetrievedCategories RC
+                JOIN 
+                    TrainingPages TP ON RC.training_page_id = TP.id
+                WHERE 
+                    RC.confident = :confident
+                AND
+                    TP.cookie_banner_checked =  :cookie_banner_checked
+                AND
+                    TP.cookie_banner_presence =  :cookie_banner_presence
             )
             SELECT 
                 category,
@@ -192,13 +310,21 @@ class TrainingPagesQueries:
 class RetrievedCategoriesQueries:
     """Queries for the TrainingPages tables"""
 
-    InsertCategoryQuery = "INSERT INTO RetrievedCategories (training_page_id, training_page_url, category, taxonomy, taxonomy_tier, taxonomy_id, confident) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    InsertCategoryQuery = (
+        "INSERT INTO RetrievedCategories (training_page_id, training_page_url,"
+        " category, taxonomy, taxonomy_tier, taxonomy_id, confident) VALUES (?, ?, ?,"
+        " ?, ?, ?, ?)"
+    )
 
 
 class CrawlDataQueries:
     """Queries for the Crawling Data"""
 
-    SelectJavascriptsQuery = "SELECT (id, frame_id, script_url, document_url, top_level_url, func_name, call_stack, symbol, operation, value, arguments, time_stamp) FROM javascript WHERE browser_id=? AND visit_id=?"
+    SelectJavascriptsQuery = (
+        "SELECT (id, frame_id, script_url, document_url, top_level_url, func_name,"
+        " call_stack, symbol, operation, value, arguments, time_stamp) FROM javascript"
+        " WHERE browser_id=? AND visit_id=?"
+    )
     # TOO MANY THINGS
     # SelectJavascriptsQuery = "SELECT (id, window_id, tab_id, frame_id, script_url, func_name, script_loc_eval, document_url, top_level_url, call_stack, symbol, operation, value, arguments, time_stamp) FROM javascript WHERE browser_id=? AND visit_id=?"
 
