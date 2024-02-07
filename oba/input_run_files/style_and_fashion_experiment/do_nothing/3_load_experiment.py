@@ -1,7 +1,7 @@
 from oba_crawler import OBAMeasurementExperiment
 
 fashion_experiment = OBAMeasurementExperiment(
-    "fashion_experiment_do_nothing",
+    "style_and_fashion_experiment_do_nothing",
     False,
 )
 

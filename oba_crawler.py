@@ -27,8 +27,11 @@ from openwpm.config import BrowserParams, ManagerParams
 from openwpm.storage.sql_provider import SQLiteStorageProvider
 from openwpm.task_manager import TaskManager
 
-# COMMAND: nohup python oba_crawler.py > {experiment_name}.log 2>&1 &
-# COMMAND: nohup python oba_crawler.py > logs/fashion_uk_accept_cookies.log 2>&1 &
+# COMMAND: nohup python {running_script}.py > {experiment_name}.log 2>&1 &
+
+# examples:
+# nohup python -m oba.input_run_files.{experiment_name}.{choice}.2_create_experiment > {experiment_name}.log 2>&1 &
+# nohup python -m oba.input_run_files.{experiment_name}.{choice}.3_load_experiment > {experiment_name}.log 2>&1 &
 
 LATEST_CATEGORIZED_TRANCO_LIST_ID = "V929N"
 DEFAULT_N_PAGES = 10000
