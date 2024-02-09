@@ -30,8 +30,13 @@ from openwpm.task_manager import TaskManager
 # COMMAND: nohup python {running_script}.py > {experiment_name}.log 2>&1 &
 
 # examples:
-# nohup python -m oba.input_run_files.{experiment_name}.{choice}.2_create_experiment > {experiment_name}.log 2>&1 &
-# nohup python -m oba.input_run_files.{experiment_name}.{choice}.3_load_experiment > {experiment_name}.log 2>&1 &
+# nohup python -m oba.input_run_files.{experiment_name}.{choice}.2_create_experiment > logs/{experiment_name}_{run_number}.log 2>&1 &
+# nohup python -m oba.input_run_files.style_and_fashion_experiment.accept.2_create_experiment > logs/style_and_fashion_experiment.log 2>&1 &
+# nohup python -m oba.input_run_files.style_and_fashion_experiment.do_nothing.2_create_experiment > logs/style_and_fashion_experiment.log 2>&1 &
+# nohup python -m oba.input_run_files.style_and_fashion_experiment.reject.2_create_experiment > logs/style_and_fashion_experiment.log 2>&1 &
+
+
+# nohup python -m oba.input_run_files.{experiment_name}.{choice}.3_load_experiment > logs/{experiment_name}.log 2>&1 &
 
 LATEST_CATEGORIZED_TRANCO_LIST_ID = "V929N"
 DEFAULT_N_PAGES = 10000

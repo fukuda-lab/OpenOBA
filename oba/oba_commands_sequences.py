@@ -70,9 +70,13 @@ def control_site_visit_sequence(
                 else TIME_OUT * 11
             ),
         )
+    if clean_run:
+        sc_suffix = "_C_"
+    else:
+        sc_suffix = "_"
     control_site_sequence.append_command(
         # ScreenshotFullPageCommand("_"), timeout=wait_time
-        ScreenshotFullPageCommand("_"),
+        ScreenshotFullPageCommand(sc_suffix),
         timeout=TIME_OUT * 11,
     )
     control_site_sequence.append_command(
