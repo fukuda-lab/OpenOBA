@@ -33,7 +33,7 @@ from .utilities.platform_utils import get_configuration_string, get_version
 tblib.pickling_support.install()
 
 SLEEP_CONS = 0.1  # command sleep constant (in seconds)
-BROWSER_MEMORY_LIMIT = 1500  # in MB
+BROWSER_MEMORY_LIMIT = 6000  # in MB
 
 STORAGE_CONTROLLER_JOB_LIMIT = 10000  # number of records in the queue
 
@@ -168,9 +168,9 @@ class TaskManager:
         """initialize the browser classes, each with its unique set of params"""
         browsers = list()
         for i in range(self.num_browsers):
-            browser_params[
-                i
-            ].browser_id = self.storage_controller_handle.get_next_browser_id()
+            browser_params[i].browser_id = (
+                self.storage_controller_handle.get_next_browser_id()
+            )
             browsers.append(
                 BrowserManagerHandle(self.manager_params, browser_params[i])
             )
@@ -427,9 +427,9 @@ class TaskManager:
             # send the command to this specific browser
             while True:
                 if self.browsers[index].ready():
-                    self.browsers[
-                        index
-                    ].current_timeout = command_sequence.total_timeout
+                    self.browsers[index].current_timeout = (
+                        command_sequence.total_timeout
+                    )
                     thread = self._start_thread(self.browsers[index], command_sequence)
                     break
                 time.sleep(SLEEP_CONS)
