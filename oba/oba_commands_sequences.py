@@ -124,11 +124,11 @@ def individual_training_visit_sequence(
                 training_site,
                 sleep=sleep if not TESTING else 5,
                 index=next_site_rank,
-                timeout=sleep + TIME_OUT if not TESTING else TIME_OUT,
+                timeout=sleep + TIME_OUT * 2 if not TESTING else TIME_OUT,
                 choice=cookie_banner_action,
                 # result_csv_file_name=banner_results_csv_name,
             ),
-            timeout=sleep + TIME_OUT * 10 if not TESTING else TIME_OUT * 11,
+            timeout=sleep + TIME_OUT * 11 if not TESTING else TIME_OUT * 11,
         )
 
     return training_visit_sequence
@@ -160,7 +160,7 @@ def training_visits_sequence(
                 wait_time,
                 # banner_results_csv_name=banner_results_csv_name,
                 cookie_banner_action=cookie_banner_action,
-            )
+            ),
         )
         next_site_rank += 1
         # For now, for testing only
