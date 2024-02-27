@@ -6,6 +6,8 @@ from adblockparser import AdblockRules
 from bs4 import BeautifulSoup
 from tldextract import extract
 
+from .resources.easylist_selectors import EASYLIST_SELECTORS
+
 # https://gist.github.com/gruber/8891611
 # regex_s = r"(?i)\badurl=((?:https?:(?:/{1,3}|[a-z0-9%])|[a-z0-9\.\-]+[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)/)(?:[^\s()<>{}\[\]]+|\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\))+(?:\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\)|[^\s`!()\[\]{};:\'\".,<>?«»“”‘’])|(?:(?<!@)[a-z0-9]+(?:[.\-][a-z0-9]+)*[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)\b/?(?!@)))"
 
@@ -102,6 +104,15 @@ def process(filter_file_path, input_json_gz_path, output_directory_path=""):
     f = gzip.open(input_json_gz_path, "rb")
 
     data_d = json.load(f)
+    # Print the nest level together with the keys
+    for k, v in data_d.items():
+        print(k)
+        print(f"Second level keys within key '{k}':\n")
+        for k2, v2 in v.items():
+            print(k2)
+            for k3, v3 in v2.items():
+                print(k3)
+                print(v3)
     # with open("example_result.json", "w") as outfile:
     # json.dump(data_d, outfile, indent=4, sort_keys=False)
 
@@ -119,5 +130,25 @@ def process(filter_file_path, input_json_gz_path, output_directory_path=""):
     return data_l_dict
 
 
-# ads = process(['easylist.txt', 'easyprivacy.txt'], '../datadir/airtravel_cookie_banner_yes/sources/airtravel_cookie_banner_yes/8945428536659389-26269dbc42635df9af8c24f3cdab8e37-cnn.json.gz')
+# ads = process(
+#     ["resources/easylist.txt", "resources/easyprivacy.txt"],
+#     "../datadir/style_and_fashion_experiment_accept/sources/8469840698848334-78e8ba0552ec488a919d8caf91b456a5-www.json.gz",
+# )
 # print(ads)
+
+
+compressed_file = gzip.open(
+    "datadir/ads_screenshots/sources/3569587893305363-3e03db8cd200d3b17328c23606e8ae58-N.json.gz",
+    "rb",
+)
+source_page_dict = json.load(compressed_file)
+
+html_content = source_page_dict["source"]
+
+soup = BeautifulSoup(html_content, "html.parser")
+
+for selector in EASYLIST_SELECTORS:
+    print(f"Searching for ads with selector '{selector}'")
+    ads = soup.select(selector)
+    for ad in ads:
+        print(f"Found ad with selector '{selector}':", ad, "\n")

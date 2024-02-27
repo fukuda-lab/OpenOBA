@@ -5,7 +5,7 @@ from typing import Callable, List
 from urllib.parse import urlparse
 
 # from bannerclick.config import TIME_OUT
-from CMPB_commands import CMPBCommand
+from OBA_CMPB_commands import CMPBCommand, ExtractAdsCommand
 
 # CustomBannerInteraction
 from openwpm.command_sequence import (
@@ -79,9 +79,12 @@ def control_site_visit_sequence(
         ScreenshotFullPageCommand(sc_suffix),
         timeout=TIME_OUT * 11,
     )
+    # control_site_sequence.append_command(
+    #     RecursiveDumpPageSourceCommand(domain),
+    #     timeout=TIME_OUT * 11,
+    # )
     control_site_sequence.append_command(
-        # RecursiveDumpPageSourceCommand(domain), timeout=wait_time
-        RecursiveDumpPageSourceCommand(domain),
+        ExtractAdsCommand(url=control_site, clean_run=clean_run),
         timeout=TIME_OUT * 11,
     )
 

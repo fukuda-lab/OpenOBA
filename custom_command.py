@@ -1,4 +1,4 @@
-""" This file aims to demonstrate how to write custom commands in OpenWPM
+"""This file aims to demonstrate how to write custom commands in OpenWPM
 
 Steps to have a custom command run as part of a CommandSequence
 
@@ -8,9 +8,17 @@ Steps to have a custom command run as part of a CommandSequence
 4. Execute the CommandSequence
 
 """
+
+import json
 import logging
+import os
+import time
+from typing import List
+import uuid
 
 from selenium.webdriver import Firefox
+from selenium.common.exceptions import TimeoutException, WebDriverException
+from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.by import By
 
 from openwpm.commands.types import BaseCommand

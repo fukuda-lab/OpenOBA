@@ -427,7 +427,6 @@ class RecursiveDumpPageSourceCommand(BaseCommand):
         manager_params,
         extension_socket,
     ):
-
         """Dump a compressed html tree for the current page visit"""
         if self.suffix != "":
             self.suffix = "-" + self.suffix
@@ -488,7 +487,6 @@ class FinalizeCommand(BaseCommand):
         manager_params,
         extension_socket,
     ):
-
         """Informs the extension that a visit is done"""
         tab_restart_browser(webdriver)
         # This doesn't immediately stop data saving from the current

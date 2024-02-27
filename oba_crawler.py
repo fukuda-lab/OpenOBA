@@ -8,6 +8,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Literal, TypedDict
+import shutil
+
 
 from bannerclick.config import (
     update_bannerclick_config_paths_with_experiment_name,
@@ -105,27 +107,34 @@ class OBAMeasurementExperiment:
         # Sites where ads could be captured from
         # TODO: provide the option of a custom_list of control_pages
         self.control_pages = [
+            "http://myforecast.com/",
+            "http://weatherbase.com/",
+            "http://theweathernetwork.com/",
+            "http://weather.com/",
+            "http://weather2umbrella.com/",
             # "http://www.wunderground.com/",
             # "http://www.localconditions.com/",
-            "http://myforecast.com/",
-            "http://www.weatherbase.com/",
-            "http://www.accuweather.com/",
+            # "http://www.accuweather.com/",
             # "http://cnn.com",
             # "http://usatoday.com",
             # "http://cbsnews.com",
             # "http://apnews.com",
             # "http://reuters.com"
-            "https://www.theweathernetwork.com/",
-            "https://weather.com/",
-            "https://www.weather2umbrella.com/",
         ]
 
         # Browser profile validation
         if fresh_experiment and Path(self.data_dir).exists():
-            raise FileExistsError(
-                "Experiment with that name already exists. Try a different name or"
-                f" delete the experiment folder in datadir/{experiment_name}"
-            )
+            print("Experiment with that name already exists. Try a different name or"
+                f" delete the experiment folder in datadir/{experiment_name}")
+            answer = input("Do you want to remove the folder? (y/n)\n")
+            if answer == "y":
+                answer2 = input("Are you sure? (y/n)\n")
+                if answer2 == "y":
+                    shutil.rmtree(self.data_dir)
+                    print("Folder removed")
+            else:
+                print("Exiting...")
+                raise FileExistsError()
 
         if fresh_experiment:
             if use_custom_pages and not custom_pages_params:

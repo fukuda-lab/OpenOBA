@@ -1,13 +1,12 @@
 import errno
 import logging
 import os
-import threading
 import time
 from datetime import datetime
+from urllib.parse import urlparse
 
 from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver import Firefox
-from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
@@ -26,6 +25,19 @@ import bannerclick.bannerdetection as bc
 import bannerclick.cmpdetection as cd
 
 from bannerclick.config import log_file, MOBILE_AGENT
+
+from oba.ad_extraction import (
+    identify_ads_in_dom,
+    is_ad_chumbox,
+    scroll_page_to_load_ads,
+    scroll_to_ad_and_get_validness,
+    split_chumbox,
+    extract_ad_url_without_click_and_screenshot,
+)
+
+from typing import List
+
+from selenium.webdriver.remote.webelement import WebElement
 
 
 def init(headless, input_file, num_browsers, num_repetitions):
@@ -91,6 +103,187 @@ class Data:
     def save_record_in_sql(table_name, row):
         sock = DataSocket(Data.sql_addr)
         sock.store_record(TableName(table_name), row["visit_id"], row)
+
+
+class ExtractAdsCommand(BaseCommand):
+    """
+    Extract the advertisements urls from the current page.
+    """
+
+    def __init__(self, url=None, clean_run=False) -> None:
+        self.logger = logging.getLogger("openwpm")
+        self.url = url
+        self.clean_run = clean_run
+
+    def __repr__(self):
+        return "ExtractAdsCommand({})".format(self.url)
+
+    def execute(
+        self,
+        webdriver: Firefox,
+        browser_params: BrowserParams,
+        manager_params: ManagerParams,
+        extension_socket: ClientSocket,
+    ) -> None:
+        def prepare_screenshot_dir():
+            # CREATE DIRECTORY TO SAVE SCREENSHOTS
+            parsed_url = urlparse(self.url).netloc.split(".")
+            print(parsed_url)
+            domain = parsed_url[0]
+            print(domain)
+            domain_dir = f"./ads_screenshots/{domain}/{self.browser_id}/"
+
+            screenshot_dir = os.path.join(manager_params.data_directory, domain_dir)
+            # Create directory if it doesn't exist
+            os.makedirs(screenshot_dir, exist_ok=True)
+
+            return screenshot_dir
+
+        try:
+            # SCROLL PAGE TO LOAD ADS
+            scroll_page_to_load_ads(webdriver)
+
+            # GET ALL ADS ACCORDING TO EASYLIST
+            ads = identify_ads_in_dom(webdriver)
+
+            screenshot_dir = prepare_screenshot_dir()
+
+            non_chumbox_ads: List[WebElement] = []
+            chumbox_ads: List[WebElement] = []
+
+            for ad in ads:
+                if is_ad_chumbox(ad):
+                    chumbox_ads.append(ad)
+                else:
+                    non_chumbox_ads.append(ad)
+
+            print(f"Found {len(non_chumbox_ads)} non chumbox ads on {self.url}")
+            print(f"Found {len(chumbox_ads)} chumbox ads on {self.url}")
+
+            ad_number = 1
+            # First scrape all visible non-chumbox ads giving less than 0.5 seconds to load each ad (i.e. extract all ads that are already visible on the page)
+            for ad_index, ad_element in enumerate(non_chumbox_ads):
+                # print(f"Scraping non chumbox ad {ad_index} / {len(non_chumbox_ads)}")
+                platform = None
+                try:
+                    # ad_valid = scroll_to_ad_and_get_validness(
+                    #     driver=webdriver, ad=ad_element, wait_time=0.5
+                    # )
+                    # if ad_valid:
+                    # ad_url = extract_ad_url_click_and_screenshot(
+                    #     driver=webdriver,
+                    #     screenshot_target=ad_element,
+                    #     click_target=ad_element,
+                    #     screenshot_file_target_path=screenshot_dir,
+                    # )
+                    # ad_urls.append(ad_url)
+                    # else:
+                    #     print(f"Non chumbox ad {ad_index} is not valid, skipping...")
+                    screenshot_full_path = os.path.join(
+                        screenshot_dir, f"{self.visit_id}_{ad_number}.png"
+                    )
+                    possible_ad_urls = extract_ad_url_without_click_and_screenshot(
+                        webdriver=webdriver,
+                        ad_element=ad_element,
+                        screenshot_target=ad_element,
+                        screenshot_file_target_path=screenshot_full_path,
+                    )
+                    # print(
+                    #     f"Captured {len(possible_ad_urls)} possible ad {ad_number} URLs"
+                    # )
+                    # We will save all possible ad urls as separate ads in the database but we can reference from which "unique" ad it comes according to the ad_number_in_visit
+                    Data.sql_addr = manager_params.storage_controller_address
+                    for ad_url in possible_ad_urls:
+                        Data.save_record_in_sql(
+                            TableName("advertisements"),
+                            {
+                                "visit_id": self.visit_id,
+                                "browser_id": self.browser_id,
+                                "ad_number_in_visit": ad_number,
+                                "ad_url": ad_url,
+                                "visit_url": self.url,
+                                "clean_run": self.clean_run,
+                            },
+                        )
+                    ad_number += 1
+                except Exception as e:
+                    print(f"Failed to extract {ad_element}")
+                    print(e)
+
+            # After that, scrape chumbox ads
+            for chumbox_index, chumbox_ad_element in enumerate(chumbox_ads):
+                # print(f"Scraping chumbox ad {chumbox_index} / {len(chumbox_ads)}")
+                chumbox = split_chumbox(driver=webdriver, ad_element=chumbox_ad_element)
+                platform = chumbox["platform"]
+                sub_ads = chumbox["ad_handles"]
+                sub_ad_number = 1
+                chumbox_ad_counted = False
+                for sub_ad_index, sub_ad in enumerate(sub_ads):
+                    print(
+                        # f"------ Scraping sub_ad {sub_ad_index} / {len(sub_ads)} -------"
+                    )
+                    try:
+                        # sub_ad_valid = scroll_to_ad_and_get_validness(
+                        #     driver=webdriver, ad=sub_ad, wait_time=0.5
+                        # )
+                        # if sub_ad_valid:
+                        #     sub_ad_url = extract_ad_url_click_and_screenshot(
+                        #         driver=webdriver,
+                        #         screenshot_target=ad_element,
+                        #         click_target=ad_element,
+                        #         screenshot_file_target_path=screenshot_dir,
+                        #     )
+                        #     ad_urls.append(sub_ad_url)
+                        #     print(f"SCRAPED sub ad URL: {sub_ad_url}")
+                        # else:
+                        #     print(
+                        #         f"Non chumbox ad {ad_index} is not valid, skipping..."
+                        #     )
+                        # chumbox_ads.pop(chumbox_index)
+                        ad_element = sub_ad["clickTarget"]
+                        screenshot_target = sub_ad["screenshotTarget"]
+                        screenshot_full_path = os.path.join(
+                            screenshot_dir,
+                            f"{self.visit_id}_{ad_number}c{sub_ad_number}.png",
+                        )
+                        possible_ad_urls = extract_ad_url_without_click_and_screenshot(
+                            webdriver=webdriver,
+                            ad_element=ad_element,
+                            screenshot_target=screenshot_target,
+                            screenshot_file_target_path=screenshot_full_path,
+                        )
+                        for ad_url in possible_ad_urls:
+                            Data.save_record_in_sql(
+                                TableName("advertisements"),
+                                {
+                                    "visit_id": self.visit_id,
+                                    "browser_id": self.browser_id,
+                                    "ad_number_in_visit": ad_number,
+                                    "sub_ad_number_in_chumbox": sub_ad_number,
+                                    "ad_url": ad_url,
+                                    "visit_url": self.url,
+                                    "clean_run": self.clean_run,
+                                    "chumbox_platform": platform,
+                                },
+                            )
+                        sub_ad_number += 1
+                        if not chumbox_ad_counted:
+                            ad_number += 1
+                            chumbox_ad_counted = True
+                    except Exception as e:
+                        print(f"Failed to extract sub ad {sub_ad} from ad chumbox")
+                        print(e)
+
+        except Exception as e:
+            print(f"[ERROR extracting ads from {self.url}]")
+            print(e)
+            with open(log_file, "a+") as f:
+                print(
+                    "failed in CMPBCommand for url: " + self.url + " " + e.__str__(),
+                    file=f,
+                )
+
+        print(f"Extracted {ad_number} ads from {self.url}")
 
 
 class SubGetCommand(BaseCommand):
@@ -267,8 +460,9 @@ class CMPBCommand(BaseCommand):
 
         if self.choice == 0:
             self.logger.info(
-                "CMPB command is successfully executed for {} (without Interaction)."
-                .format(current_url)
+                "CMPB command is successfully executed for {} (without Interaction).".format(
+                    current_url
+                )
             )
         else:
             self.logger.info(
