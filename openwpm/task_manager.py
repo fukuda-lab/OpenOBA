@@ -33,7 +33,7 @@ from .utilities.platform_utils import get_configuration_string, get_version
 tblib.pickling_support.install()
 
 SLEEP_CONS = 0.1  # command sleep constant (in seconds)
-BROWSER_MEMORY_LIMIT = 6000  # in MB
+BROWSER_MEMORY_LIMIT = 12000  # in MB
 
 STORAGE_CONTROLLER_JOB_LIMIT = 10000  # number of records in the queue
 
