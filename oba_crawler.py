@@ -43,6 +43,7 @@ from openwpm.task_manager import TaskManager
 LATEST_CATEGORIZED_TRANCO_LIST_ID = "V929N"
 DEFAULT_N_PAGES = 10000
 EXPOVAR_MEAN = 180
+TESTING = False
 # LATEST_CATEGORIZED_TRANCO_LIST_ID = "N7WQW" #Previous
 # DEFAULT_N_PAGES = 5000 # Previous
 
@@ -96,6 +97,7 @@ class OBAMeasurementExperiment:
             }
 
         self.data_dir = f"./datadir/{self.experiment_name}/"
+        # self.data_dir = f"/Volumes/FOBAM_data/28_02_style_and_fashion/datadir/{self.experiment_name}/"
 
         self.fresh_experiment = fresh_experiment
         self.custom_pages = use_custom_pages
@@ -124,8 +126,10 @@ class OBAMeasurementExperiment:
 
         # Browser profile validation
         if fresh_experiment and Path(self.data_dir).exists():
-            print("Experiment with that name already exists. Try a different name or"
-                f" delete the experiment folder in datadir/{experiment_name}")
+            print(
+                "Experiment with that name already exists. Try a different name or"
+                f" delete the experiment folder in datadir/{experiment_name}"
+            )
             answer = input("Do you want to remove the folder? (y/n)\n")
             if answer == "y":
                 answer2 = input("Are you sure? (y/n)\n")
@@ -553,10 +557,11 @@ class OBAMeasurementExperiment:
                         # banner_results_csv_name=self.banner_results_filename,
                     )
                 ]
-            # print("GOT SEQUENCE LIST: ", sequence_list)
+            print("GOT SEQUENCE LIST: ", sequence_list)
             next_site_rank += len(sequence_list)
             for command_sequence in sequence_list:
                 # Wait exponential distribution between command sequences
+                # TESTING NO WAIT
                 wait_time = int(random.expovariate(1 / EXPOVAR_MEAN))
                 print(f"Waiting {wait_time} seconds before next command sequence")
                 time.sleep(wait_time)

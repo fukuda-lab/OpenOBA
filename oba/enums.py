@@ -87,6 +87,13 @@ class OBABrowserQueries:
             " site_rank;"
         )
 
+    def get_unresolved_advertisements_query(self):
+        """Returns a list of tuples with (ad_id, landing_page_url)"""
+        return (
+            "SELECT ad_id, landing_page_url FROM visit_advertisements WHERE visit_id = ?"
+            f" AND browser_id = {self.browser_id} AND landing_page_url IS NULL"
+        )
+
 
 class ControlVisitsQueries:
     """Queries for the ControlVisits tables"""
@@ -100,8 +107,13 @@ class ControlVisitsQueries:
 class AdvertisementsQueries:
     """Queries for the Advertisements tables"""
 
-    InsertAdQuery = "INSERT INTO Advertisements (landing_url, static) VALUES (?, ?)"
-    SelectAdIdQuery = "SELECT id FROM Advertisements WHERE landing_url=?"
+    SelectAllAdIdsWithLandingPageURLQuery = (
+        "SELECT ad_id FROM advertisements WHERE landing_page_url=:landing_page_url"
+    )
+    SelectResolvedAdvertisementsNotCategorizedFromVisitQuery = (
+        "SELECT ad_id, landing_page_url FROM advertisements WHERE visit_id=:visit_id"
+        " AND browser_id=:browser_id AND landing_page_url IS NOT NULL AND categorized = 0"
+    )
 
 
 class ControlVisitAdsQueries:
@@ -113,13 +125,15 @@ class ControlVisitAdsQueries:
     )
 
 
-class AdvertisementsCategoriesQueries:
-    """Queries for the AdvertisementsCategoriesQueries tables"""
+class AdCategoriesQueries:
+    """Queries for the ad_categories tables"""
 
     InsertAdCategoryQuery = (
-        "INSERT INTO AdvertisementsCategories (ad_id, landing_url, category, taxonomy,"
-        " taxonomy_tier, taxonomy_id, confident) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO ad_categories (ad_id, visit_id, landing_page_url, category_name,"
+        " category_code, parent_category, confident) VALUES (?, ?, ?, ?, ?, ?, ?)"
     )
+
+    SelectCategoriesFromLandingPageURLQuery = "SELECT category_name, category_code, parent_category, confident FROM ad_categories WHERE landing_page_url=:landing_page_url"
 
 
 class TrainingPagesQueries:

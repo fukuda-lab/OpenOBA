@@ -16,7 +16,7 @@ from openwpm.command_sequence import (
 from openwpm.commands.browser_commands import GetCommand
 
 TIME_OUT = 60  # OpenWPM timeout = TIME_OUT*11, Selenium timeout = TIME_OUT
-TESTING = False
+TESTING = True
 CONTROL_SITE_WAIT_REF = 120
 TRAINING_SITE_WAIT_REF = 90
 

@@ -12,37 +12,44 @@
 /* 
 # custom tables 
 */
-CREATE TABLE IF NOT EXISTS ad_categories (
+CREATE TABLE IF NOT EXISTS landing_page_categories (
   category_id INTEGER PRIMARY KEY NOT NULL,
-  ad_id INTEGER,
-  visit_id INTEGER,
+  landing_page_id INTEGER,
   landing_page_url TEXT NOT NULL,
   category_code TEXT NOT NULL,
   category_name TEXT NOT NULL,
   parent_category TEXT NOT NULL,
-  confident NOT NULL,
-    FOREIGN KEY(ad_id) REFERENCES advertisements(ad_id),
-    FOREIGN KEY(visit_id) REFERENCES visits(visit_id)
+  confident NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS landing_pages (
+  landing_page_id INTEGER PRIMARY KEY NOT NULL,
+  landing_page_url TEXT NOT NULL UNIQUE,
+  categorized BOOLEAN DEFAULT FALSE
 );
 
 
-CREATE TABLE IF NOT EXISTS advertisements (
+CREATE TABLE IF NOT EXISTS visit_advertisements (
     ad_id INTEGER PRIMARY KEY,
     visit_id INTEGER,
     browser_id INTEGER,
-    -- to access the ad's corresponding "number" within the visit
-    -- when we have multiple "possible urls" for the same ad, we can use this number to refer to the specific ad, also useful for the screenshot
     ad_url TEXT,
     visit_url TEXT,
     clean_run BOOLEAN,
+    -- to access the ad's corresponding "number" within the visit
+    -- when we have multiple "possible urls" for the same ad, we can use this number to refer to the specific ad, also useful for the screenshot
     ad_number_in_visit INTEGER,
     sub_ad_number_in_chumbox INTEGER DEFAULT NULL,
     chumbox_platform TEXT DEFAULT NULL,
+    landing_page_id INTEGER DEFAULT NULL,
     landing_page_url TEXT DEFAULT NULL,
     categorized BOOLEAN DEFAULT FALSE,
     oba_potential BOOLEAN DEFAULT FALSE,
+    non_ad BOOLEAN DEFAULT NULL,
+    unspecific_ad BOOLEAN DEFAULT NULL,
     FOREIGN KEY(visit_id) REFERENCES visits(visit_id),
-    FOREIGN KEY(browser_id) REFERENCES crawl(browser_id)
+    FOREIGN KEY(browser_id) REFERENCES crawl(browser_id),
+    FOREIGN KEY(landing_page_id) REFERENCES ad_landing_page(landing_page_id)
 );
 
 CREATE TABLE IF NOT EXISTS visits (

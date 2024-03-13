@@ -1,0 +1,3 @@
+support.google.com
+adssettings.google.com
+popup.taboola.com

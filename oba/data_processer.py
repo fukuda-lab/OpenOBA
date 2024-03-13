@@ -11,10 +11,9 @@ from typing import AnyStr, DefaultDict, Dict, List, Optional, Set, Tuple
 
 import requests
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service as ChromeService
-
-# from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.options import Options as FirefoxOptions
+from selenium.webdriver.firefox.options import Options
+from selenium.common.exceptions import UnexpectedAlertPresentException
+import time
 
 from openwpm.utilities.platform_utils import get_firefox_binary_path
 
@@ -23,16 +22,16 @@ import tldextract
 
 # from adblockparser import AdblockRules
 from .categorizer import Categorizer
-from .enums import (
-    AdvertisementsCategoriesQueries,
-    AdvertisementsQueries,
-    CleanBrowserQueries,
-    ControlVisitAdsQueries,
-    ControlVisitsQueries,
-    CrawlDataQueries,
-    GenericQueries,
+
+from .enums_data_processer import (
+    VisitAdvertisementsQueries,
+    LandingPageCategoriesQueries,
+    LandingPagesQueries,
     OBABrowserQueries,
 )
+
+from .enums import IAB_CATEGORIES
+from selenium.common.exceptions import TimeoutException
 
 # from extract_ad_url import process
 
@@ -40,6 +39,7 @@ WEBSHRINKER_CREDENTIALS = {
     "api_key": "GhU39K7bdfvdxRlcnEkT",
     "secret_key": "ZwnCzHIpw08DF10Fmz5c",
 }
+DATA_FROM_VOLUME = False
 
 
 class DataProcesser:
@@ -48,391 +48,304 @@ class DataProcesser:
 
     def __init__(self, experiment_name: str, webshrinker_credentials):
         self.experiment_name = experiment_name
+
+        self.firefox_binary_path = get_firefox_binary_path()
+        self.driver = self._setup_driver()
+
         if webshrinker_credentials:
             self.categorizer = Categorizer(**webshrinker_credentials)
 
-        # [OLD EXPERIMENTS]
-        # self.source_pages_dir = f'../datadir/{self.experiment_name}/sources/{self.experiment_name}'
-        # self.experiment_data_path = f'../datadir/{self.experiment_name}.sqlite'
-        # self.ads_database = f'results/{self.experiment_name}/ads_db.sqlite'
-        # self.output_path = f'results/{self.experiment_name}/chronological_progress.json'
-
         # Dirs, maybe would be better in a dictionary Paths
         self.source_pages_dir = f"../datadir/{self.experiment_name}/sources"
-        self.experiment_data_path = (
-            f"../datadir/{self.experiment_name}/crawl-data.sqlite"
-        )
 
-        os.makedirs(f"datadir/{self.experiment_name}/results", exist_ok=True)
-        self.output_path = (
-            f"datadir/{self.experiment_name}/results/chronological_progress.json"
-        )
-        self.ads_database = f"datadir/{self.experiment_name}/results/ads_db.sqlite"
+        if DATA_FROM_VOLUME:
+            self.experiment_data_dir = f"/Volumes/FOBAM_data/28_02_style_and_fashion/datadir/{self.experiment_name}/"
+        else:
+            self.experiment_data_dir = f"datadir/{self.experiment_name}/"
 
-        self.static_ads = []
-        self.dynamic_ads = defaultdict(list)
-        self.control_site_urls = set()
-        self.blocklists_paths_list = ["easylist.txt", "easyprivacy.txt"]
+        # self.static_ads = []
+        # self.dynamic_ads = defaultdict(list)
+        # self.control_site_urls = set()
 
-    # def categorize_ads(self, webshrinker_credentials):
-    #     """ with the Categorizer, Categorize all the adds captured from the control pages visits (including the clean browser ads) """
+    def _setup_driver(self):
+        options = Options()
+        options.add_argument("--headless")
+        options.binary_location = self.firefox_binary_path
+        driver = webdriver.Firefox(options=options)
+        driver.set_page_load_timeout(30)  # Set the timeout to 30 seconds
+        return driver
 
-    #     # Connect to the same db from the training_pages or handle its own?
+    def get_ad_landing_page_url(self, ad_url):
+        try:
+            self.driver.get(ad_url)
+            final_url = self._wait_for_url_stabilization()
+            return final_url
+        except TimeoutException:
+            print(f"Page load timed out for URL: {ad_url}. Skipping...")
+            return (
+                ad_url  # Or return ad_url to indicate the original URL was not resolved
+            )
+        except Exception as e:
+            print(f"An error occurred while loading the page: {e}")
+            print("---------Default returning same ad_url...---------")
+            return ad_url
 
-    #     pass
+    def _wait_for_url_stabilization(
+        self, check_interval=1, stable_period=5, max_duration=30
+    ):
+        start_time = time.time()
+        last_url = self.driver.current_url
+        stable_since = start_time
 
-    # def _get_site_ads_from_visit(self, visit_id: AnyStr) -> Tuple[List, List]:
-    #     """Use the extract_ad_url script to get the ads of a page source given its visit_id."""
-    #     # TODO: I don't remember very well why this, check it well
-    #     # Not sure about this way of doing it
-    #     static_ads_here = set() if not self.static_ads else self.static_ads
-    #     # Unpack row
-    #     # Search for the JSON file using a pattern
-    #     pattern = os.path.join(
-    #         self.source_pages_dir, f"{visit_id}-*.json.gz"
-    #     )  # Match all the ads
-    #     json_files = glob.glob(pattern)
+        while time.time() - start_time < max_duration:
+            time.sleep(check_interval)
+            current_url = self.driver.current_url
+            if current_url != last_url:
+                last_url = current_url
+                stable_since = time.time()
+            elif time.time() - stable_since >= stable_period:
+                # URL has been stable for the specified period; assume it's the final URL
+                return current_url
 
-    #     href_urls = []
-    #     landing_page_urls = []
-    #     # Process each file that matches the pattern
-    #     for json_filename in json_files:
-    #         ad_url_data = process(self.blocklists_paths_list, json_filename)
-    #         for _, value in ad_url_data.items():
-    #             if value["landing_page_url"] not in static_ads_here:
-    #                 landing_page_urls.append(value["landing_page_url"])
-    #                 href_urls.append(value["href_url"])
-    #     return (landing_page_urls, href_urls)
+        # Return the current URL if max_duration is reached without stabilization
+        return self.driver.current_url
 
-    def _create_ad_tables_if_not_exist(self, ads_cursor):
-        """Creates the database for the control pages visited during the crawling related data"""
+    def close_browser(self):
+        self.driver.quit()
 
-        # Table for site_visits during the crawling that correspond to control pages
-        ads_cursor.execute(
-            """
-                CREATE TABLE IF NOT EXISTS ControlVisits (
-                    id INTEGER PRIMARY KEY,
-                    visit_id INTEGER UNIQUE,
-                    browser_id INTEGER,
-                    site_url TEXT,
-                    site_rank INTEGER
+    def process_browsers_new_ads(
+        self,
+        crawled_data_cursor: sqlite3.Cursor,
+        crawl_conn: sqlite3.Connection,
+        oba_browser_ids,
+        request_rate=1,
+        taxonomy="iabv1",
+    ):
+        """Set dynamic ads, in a dictionary with all the ads by control_site and visit_id ordered by site_rank"""
+        semaphore = asyncio.Semaphore(request_rate)
+
+        async def _async_categorize_landing_page(
+            landing_page_id: int, landing_page_url: str
+        ):
+            """Categorize the ad landing page with the Categorizer and save the categories in the AdvertisementsCategories table."""
+            print(f"[ASYNC CATEGORIZE LANDING PAGE] {landing_page_url}")
+            async with semaphore:
+                async with aiohttp.ClientSession() as session:
+                    response = await self.categorizer.categorize(
+                        session, landing_page_url, taxonomy=taxonomy
                     )
-            """
-        )
+                    delay = 1  # Initial delay in seconds
+                    while True:
+                        if response["status_code"] == 200:
+                            # TODO: check case where we would need more than one "top_level_category"
+                            print(
+                                f"[CATEGORIES RESPONSE] {response['categories_response']}"
+                            )
+                            for result in response["categories_response"]:
+                                # Get the parent category from the IAB_CATEGORIES dictionary
+                                parent_category_code = result["taxonomy_id"].split("-")[
+                                    0
+                                ]
+                                parent_category_name = IAB_CATEGORIES.get(
+                                    parent_category_code
+                                ).get(parent_category_code)
 
-        # Table for standalone Advertisements. Static is boolean so represented with 0 or 1
-        ads_cursor.execute(
-            """
-                CREATE TABLE IF NOT EXISTS Advertisements (
-                    id INTEGER PRIMARY KEY,
-                    landing_url TEXT UNIQUE,
-                    static INTEGER
-                )
-            """
-        )
+                                crawled_data_cursor.execute(
+                                    LandingPageCategoriesQueries.InsertCategoryQuery,
+                                    {
+                                        "landing_page_id": landing_page_id,
+                                        "landing_page_url": landing_page_url,
+                                        "category_name": result["category"],
+                                        "category_code": result["taxonomy_id"],
+                                        "parent_category": parent_category_name,
+                                        "confident": 1 if result["confident"] else 0,
+                                    },
+                                )
+                            # Update the landing page with categorized = 1
+                            crawled_data_cursor.execute(
+                                LandingPagesQueries.UpdateLandingPageCategorizedQuery,
+                                {"categorized": 1, "landing_page_id": landing_page_id},
+                            )
 
-        # Table that standardizes the several Advertisements that could have appeared for each entry of ControlVisits
-        # The ad_url would be the
-        ads_cursor.execute(
-            """
-                CREATE TABLE IF NOT EXISTS ControlVisitAds (
-                    id INTEGER PRIMARY KEY,
-                    control_visit_id INTEGER,
-                    control_site_url TEXT,
-                    control_site_rank INTEGER,
-                    ad_id INTEGER,
-                    landing_url TEXT,
-                    ad_href_url TEXT,
-                    FOREIGN KEY(control_visit_id) REFERENCES ControlVisits(id),
-                    FOREIGN KEY(ad_id) REFERENCES Advertisements(id)
-                )
-            """
-        )
+                            # TODO: Implement progress bar
+                            # progress.update(1)
+                            print(
+                                f"[SUCCESS] Fetched categories for {landing_page_url}"
+                            )
+                            break
+                        elif response["status_code"] == 429:
+                            print(
+                                f"[WARNING] Rate limit exceeded for {landing_page_url}. Retrying in {delay} seconds..."
+                            )
+                            await asyncio.sleep(delay)
+                            if delay < 4:
+                                delay *= 2  # Double the delay for each retry
+                            else:
+                                delay += 1  # Add only one second after for 4 seconds
 
-        # Table that standardizes the several categories that an Advertisement can have
-        ads_cursor.execute(
-            """
-                CREATE TABLE IF NOT EXISTS AdvertisementsCategories (
-                    id INTEGER PRIMARY KEY,
-                    ad_id INTEGER,
-                    landing_url TEXT,
-                    category TEXT,
-                    taxonomy TEXT,
-                    taxonomy_tier INTEGER,
-                    taxonomy_id TEXT,
-                    confident BOOLEAN,
-                    FOREIGN KEY(ad_id) REFERENCES Advertisements(id)
-                )
-            """
-        )
+                        else:
+                            print(f"[ERROR] {response}")
+                            break
 
-    def _set_and_save_static_ads_and_control_sites(
-        self, crawl_cursor, ads_cursor, clear_browser_ids
-    ):
-        """Get and set the static ads from the clear browsers"""
-
-        def _get_static_ads_for_visit(clean_visit_rows: List) -> Set:
-            """Static ads use a set because we don't care about duplicates and we don't need site_rank"""
-
-            static_ads_new_set = set()
-            for clean_row in clean_visit_rows:
-                _, visit_id = clean_row
-                ads_tuple = self._get_site_ads_from_visit(visit_id)
-                static_ads_new_set = static_ads_new_set | set(ads_tuple[0])
-            return static_ads_new_set
-
-        static_ads_set = set()
-
-        # Get static ads
-        for index, browser_id in enumerate(clear_browser_ids):
+        visits_number = 0
+        # Traverse all the browsers from the experiment
+        for index, browser_id in enumerate(oba_browser_ids):
             print(
-                f"Processing static ads of browser {index + 1}/{len(clear_browser_ids)}"
+                f"[BROWSER ADS START] Starting crawled data dynamic ads extraction of browser {index + 1}/{len(oba_browser_ids)}..."
             )
-            clear_browser_queries = CleanBrowserQueries(browser_id=browser_id)
-            # Get all the static and contextual ads (clean browser)
-            crawl_cursor.execute(clear_browser_queries.CleanRunVisitsQuery)
-            clean_run_site_visits = crawl_cursor.fetchall()
-            static_ads_set = static_ads_set | _get_static_ads_for_visit(
-                clean_run_site_visits
+            oba_browser_queries = OBABrowserQueries(browser_id=browser_id)
+
+            # First retrieve all unresolved and uncategorized ads from the database
+            crawled_data_cursor.execute(
+                oba_browser_queries.get_unresolved_advertisements_query(),
+                {"browser_id": browser_id},
+            )
+            unresolved_visit_ads = crawled_data_cursor.fetchall()
+
+            # Get a list of unique ad URLs
+            unique_unresolved_ad_urls = list(
+                set([ad_url for _, ad_url in unresolved_visit_ads])
             )
 
-            # Get all the control_sites urls in a list
-            # TODO: Check why is that if like that (shouldn't it be just if clean_run_site_visits?)
-            if len(clean_run_site_visits) > len(self.control_site_urls):
-                for control_site_url, _ in clean_run_site_visits:
-                    self.control_site_urls.add(control_site_url)
-        self.static_ads = list(static_ads_set)
+            # Then resolve all the unique landing page URLs for the unresolved ads
+            for ad_url in unique_unresolved_ad_urls:
+                resolved_landing_page_url = None
+                resolved_landing_page_id = None
+                visits_number += 1
+                print(
+                    f"[UNRESOLVED AD URL START] {visits_number}/{len(unique_unresolved_ad_urls)} for {ad_url}"
+                )
+                start_time = time.time()
+                # First check if the ad URL was already resolved previously in another visit advertisement
+                crawled_data_cursor.execute(
+                    VisitAdvertisementsQueries.SelectResolvedLandingPagesFromADURLQuery,
+                    {
+                        "visit_id": browser_id,
+                        "browser_id": browser_id,
+                        "ad_url": ad_url,
+                    },
+                )
+                resolved_landing_pages_from_ad_url = crawled_data_cursor.fetchall()
+                # If the ad URL was already resolved, use the resolved landing page URL
+                for (
+                    db_landing_page_id,
+                    db_landing_page_url,
+                ) in resolved_landing_pages_from_ad_url:
+                    if db_landing_page_url != ad_url:
+                        resolved_landing_page_url = db_landing_page_url
+                        resolved_landing_page_id = db_landing_page_id
+                        break
 
-        # TODO: Check if the static ads are being correclty saved, the return values with the tuple of lists and stuff
-        for static_ad in self.static_ads:
-            # We set static as True by using int "1" because of how sqlite handles booleans
-            try:
-                ads_cursor.execute(AdvertisementsQueries.InsertAdQuery, (static_ad, 1))
-            except sqlite3.IntegrityError:
-                # Duplicate, pass without raising error
-                pass
+                if not resolved_landing_page_url:
+                    resolved_landing_page_url = self.get_ad_landing_page_url(ad_url)
+                #     if resolved_landing_page_url == ad_url:
+                #         # If the resolved landing page URL is the same as the ad URL, skip the rest of the loop and continue to the next ad URL to leave it unresolved for later
+                #         # TODO: mark something in the database to indicate that the ad URL is unresolved but has been attempted
+                #         print(
+                #             f"[UNRESOLVED AD URL] {ad_url} was not resolved. Skipping..."
+                #         )
+                #         continue
 
-    def _get_javascripts_third_party_urls(
-        self, crawl_cursor, browser_id, visit_id, site_url
-    ):
-        """Gets third party urls found within javascripts run given a visit_id. This are potential ads"""
+                finish_time = time.time()
+                if finish_time - start_time > 5:
+                    print(
+                        f"[LONG TIME WARNING] Page load took {finish_time - start_time} seconds for URL: {ad_url}"
+                    )
+                print(
+                    f"[RESOLVED LANDING PAGE URL] {resolved_landing_page_url} in {finish_time - start_time} seconds."
+                )
+                # Look for the resolved landing page URL in the landing_pages table
+                crawled_data_cursor.execute(
+                    LandingPagesQueries.SelectLandingPageFromURLQuery,
+                    (resolved_landing_page_url,),
+                )
+                database_landing_page = crawled_data_cursor.fetchone()
+                landing_page_categories = []
 
-        def find_urls_in_js(js_string, site_url_tld):
-            """Regex to find URLs in a string (for example) ['www.example.com', 'api.test.com', 'array1.com', 'array2.com', 'airfrance.fr', 'www.google.com']"""
-            # Regular expression to match URLs
-            url_pattern = re.compile(
-                r'\b(https?://)?(?:www\.)?([a-z0-9-]+(?:\.[a-z0-9-]+)+)(?=[\'";\s])'
+                # Look for the categories of the resolved landing page URL in the landing_page_categories table if it was already categorized
+                if database_landing_page and database_landing_page[2]:
+                    crawled_data_cursor.execute(
+                        LandingPageCategoriesQueries.SelectCategoriesFromLandingPageURLQuery,
+                        (resolved_landing_page_url,),
+                    )
+                    landing_page_categories = crawled_data_cursor.fetchall()
+
+                try_for_second_time_condition = (
+                    len(landing_page_categories) == 1
+                    and landing_page_categories[0][0] == "Uncategorized"
+                )
+
+                # if the resolved landing page URL is not in the database, try to categorize it
+                if (
+                    not database_landing_page
+                    or database_landing_page[2] == 0
+                    or try_for_second_time_condition
+                    # This condition is to check if the landing page has only been categorized as Uncategorized so we can try to categorize it again
+                ):
+                    if (
+                        not database_landing_page
+                    ):  # Don't add landing_url again if it's already in the database
+                        # Insert the resolved landing page URL into the landing_pages table with categorized = 0 to retrieve the landing_page_id (needed for the landing_page_categories table)
+                        crawled_data_cursor.execute(
+                            LandingPagesQueries.InsertLandingPageQuery,
+                            (resolved_landing_page_url, 0),
+                        )
+                    # Get the landing_page_id of the inserted landing page
+                    crawled_data_cursor.execute(
+                        LandingPagesQueries.SelectLandingPageFromURLQuery,
+                        (resolved_landing_page_url,),
+                    )
+                    landing_page_id, _, _ = crawled_data_cursor.fetchone()
+                    # Categorize the resolved landing page URL
+                    asyncio.run(
+                        _async_categorize_landing_page(
+                            landing_page_id, resolved_landing_page_url
+                        )
+                    )
+                else:
+                    # If the resolved landing page URL is already in the database, retrieve the landing_page_id
+                    landing_page_id, _, _ = database_landing_page
+                    print("[ALREADY CATEGORIZED] Skipping categorization...")
+
+                # Check one more time if the resolved landing page URL was categorized
+                crawled_data_cursor.execute(
+                    LandingPagesQueries.SelectLandingPageFromURLQuery,
+                    (resolved_landing_page_url,),
+                )
+                _, _, landing_page_categorized = crawled_data_cursor.fetchone()
+
+                # Update all the unresolved visit_advertisements that have the same ad_url with the resolved landing page URL and landing_page_id
+                crawled_data_cursor.execute(
+                    VisitAdvertisementsQueries.UpdateVisitAdvertisementLandingPageQuery,
+                    {
+                        "ad_url": ad_url,
+                        "landing_page_url": resolved_landing_page_url,
+                        "landing_page_id": landing_page_id,
+                        "categorized": landing_page_categorized,
+                    },
+                )
+
+                print(
+                    f"[UNRESOLVED AD URL END] {visits_number}/{len(unique_unresolved_ad_urls)}\n\n"
+                )
+                # Save the changes every 10 visits
+                if visits_number % 10 == 0:
+                    crawl_conn.commit()
+            print(
+                f"[BROWSER ADS FINISH] Finished crawled data dynamic ads extraction of browser {index + 1}/{len(oba_browser_ids)}..."
             )
-            matches = set()
-            # Get all matches
-            for match_found in url_pattern.findall(js_string):
-                # Must be third parties
-                if tldextract.extract(match_found[1]).domain != site_url_tld:
-                    matches.add(match_found[0] + match_found[1])
-            return matches
 
-        # 2. With browser_id and visit_id, retrieve all the javascripts captured in that visit
-        crawl_cursor.execute(
-            CrawlDataQueries.SelectJavascriptsQuery, (browser_id, visit_id)
-        )
-        javascripts = crawl_cursor.fetchall()
-
-        # 3. Look within the javascripts for all the third party URLs
-        urls_found = set()
-        site_url_tld = tldextract.extract(site_url).domain
-        for javascript in javascripts:
-            (
-                js_id,
-                frame_id,
-                script_url,
-                document_url,
-                top_level_url,
-                func_name,
-                call_stack,
-                symbol,
-                operation,
-                value,
-                arguments,
-                time_stamp,
-            ) = javascript
-            urls_in_value = find_urls_in_js(
-                value, top_level_url, script_url, site_url_tld
-            )
-            urls_found |= urls_in_value
-            # urls_in_call_stack = find_urls_in_js(call_stack)
-            # urls_in_symbol = find_urls_in_js(symbol)
-            # urls_in_arguments = find_urls_in_js(arguments)
-
-        # 4. BLocklist to get ads, mark them as href when matched
-        # Open blocklists
-        filter_l_l = [
-            open(path).read().splitlines() for path in self.blocklists_paths_list
-        ]
-        # Flatten them
-        filter_l = [item for sublist in filter_l_l for item in sublist]
-        ad_block = AdblockRules(filter_l)
-
-        possible_hrefs = []
-        possible_landing_pages = []
-
-        for url in urls_found:
-            if ad_block.should_block(url):
-                possible_hrefs.append(url)
-            else:
-                possible_landing_pages.append(url)
-
-        return possible_hrefs, possible_landing_pages
-
-    # def _set_and_save_dynamic_ads(
-    #     self,
-    #     crawl_cursor,
-    #     ads_cursor,
-    #     oba_browser_ids,
-    #     request_rate=1,
-    #     taxonomy="iabv1",
-    # ):
-    #     """Set dynamic ads, in a dictionary with all the ads by control_site and visit_id ordered by site_rank"""
-
-    #     semaphore = asyncio.Semaphore(request_rate)
-
-    #     async def _async_categorize_ad(landing_ad_url):
-    #         async with semaphore:
-    #             async with aiohttp.ClientSession() as session:
-    #                 response = await self.categorizer.categorize(
-    #                     session, landing_ad_url, taxonomy=taxonomy
-    #                 )
-    #                 delay = 1  # Initial delay in seconds
-    #                 while True:
-    #                     if response["status_code"] == 200:
-    #                         # TODO: check case where we would need more than one "top_level_category"
-    #                         for result in response["categories_response"]:
-    #                             ads_cursor.execute(
-    #                                 AdvertisementsQueries.SelectAdIdQuery,
-    #                                 (landing_ad_url,),
-    #                             )  # Single comma for single-element tuple
-    #                             page_id = ads_cursor.fetchone()[0]
-    #                             ads_cursor.execute(
-    #                                 AdvertisementsCategoriesQueries.InsertAdCategoryQuery,
-    #                                 (
-    #                                     page_id,
-    #                                     landing_ad_url,
-    #                                     result["category"],
-    #                                     result["taxonomy"],
-    #                                     result["taxonomy_tier"],
-    #                                     result["taxonomy_id"],
-    #                                     result["confident"],
-    #                                 ),
-    #                             )
-
-    #                         # TODO: Implement progress bar
-    #                         # progress.update(1)
-    #                         print(f"[SUCCESS] Fetched categories for {landing_ad_url}")
-    #                         break
-    #                     elif response["status_code"] == 429:
-    #                         print(
-    #                             f"[WARNING] Rate limit exceeded for {landing_ad_url}. Retrying in {delay} seconds..."
-    #                         )
-    #                         await asyncio.sleep(delay)
-    #                         if delay < 4:
-    #                             delay *= 2  # Double the delay for each retry
-    #                         else:
-    #                             delay += 1  # Add only one second after for 4 seconds
-
-    #                     else:
-    #                         print(f"[ERROR] {response}")
-    #                         break
-
-    #     visits_number = 0
-    #     for index, browser_id in enumerate(oba_browser_ids):
-    #         oba_browser_queries = OBABrowserQueries(browser_id=browser_id)
-    #         # Start with the crawled data ads extraction
-    #         print(
-    #             f"Starting crawled data dynamic ads extraction of browser {index + 1}/{len(oba_browser_ids)}..."
-    #         )
-    #         for control_site_url in self.control_site_urls:
-    #             print(f"[CONTROL_SITE] {control_site_url}")
-    #             # We assume that each control site was visited only once during clean run.
-    #             query = oba_browser_queries.get_visit_rows_per_control_site_query(
-    #                 control_site_url
-    #             )
-    #             # Fetch all the visits associated to the actual control site
-    #             crawl_cursor.execute(query)
-    #             control_site_visit_rows = crawl_cursor.fetchall()
-    #             for visit_row in control_site_visit_rows:
-    #                 site_url, visit_id, site_rank = visit_row
-    #                 visits_number += 1
-    #                 print(f"[VISIT START] {visits_number}")
-    #                 # SQLITE
-    #                 ads_cursor.execute(
-    #                     ControlVisitsQueries.InsertControlVisit,
-    #                     (visit_id, browser_id, site_url, site_rank),
-    #                 )
-    #                 ads_found_page_source = self._get_site_ads_from_visit(visit_id)
-    #                 (
-    #                     possible_ads_js,
-    #                     possible_landing_pages_js,
-    #                 ) = self._get_javascripts_third_party_urls(
-    #                     crawl_cursor, browser_id, visit_id, site_url
-    #                 )
-
-    #                 # TODO: Fix so the next line can be possible (return value of self._get_site_ads_from_visit has different shape of return value of self._get_javascripts_third_party_urls)
-    #                 # ads_found = ads_found_page_source + possible_ads_js
-    #                 if ads_found:
-    #                     print(f"[ADS FOUND] {len(ads_found)}")
-    #                     # Add href_urls
-    #                     # output_dict['dynamic_ads'][site_url].append({site_rank: {'landing_page_urls': ads_found[0], 'href_urls': ads_found[1]}})
-    #                     # Add only landing_page_urls
-    #                     self.dynamic_ads[site_url].append({site_rank: ads_found[0]})
-    #                     for i in range(len(ads_found[0])):
-    #                         landing_ad_url = ads_found[0][i]
-    #                         href_ad_url = ads_found[1][i]
-    #                         # SQLITE
-    #                         try:
-    #                             ads_cursor.execute(
-    #                                 AdvertisementsQueries.InsertAdQuery,
-    #                                 (landing_ad_url, 0),
-    #                             )
-    #                             ads_cursor.execute(
-    #                                 AdvertisementsQueries.SelectAdIdQuery,
-    #                                 (landing_ad_url,),
-    #                             )
-    #                             ad_id = ads_cursor.fetchone()[0]
-    #                             print(ad_id)
-    #                             # HERE IS WHERE I WANT TO USE THE CATEGORIZE METHOD:
-    #                             # categories = self.categorizer.categorize()
-    #                             # ADD THE CATEGORIES TO THE AdvertisementsCategories table
-    #                             asyncio.run(_async_categorize_ad(landing_ad_url))
-    #                         except sqlite3.IntegrityError:
-    #                             # Duplicate, pass without raising error
-    #                             pass
-
-    #                         ads_cursor = ads_cursor.execute(
-    #                             AdvertisementsQueries.SelectAdIdQuery, (landing_ad_url,)
-    #                         )  # Single comma for single-element tuple
-    #                         # TODO: Check here not sure about how does it return
-    #                         # fetchall() returns a list of one element in this case, so [0] for the first element, then [0] to get the (only) column queried
-    #                         ad_id = ads_cursor.fetchall()[0][0]
-    #                         # SQLITE
-    #                         ads_cursor.execute(
-    #                             ControlVisitAdsQueries.InsertControlVisitAdQuery,
-    #                             (
-    #                                 visit_id,
-    #                                 control_site_url,
-    #                                 site_rank,
-    #                                 ad_id,
-    #                                 landing_ad_url,
-    #                                 href_ad_url,
-    #                             ),
-    #                         )
-
-    def crawling_data_process(self):
+    def update_crawling_data_process(self, filter_ads: bool = True):
+        """Process the crawling data, setting the dynamic ads and filtering the ads that are known not to be ads."""
         # TODO: Make this process resumable between each new crawling. i.e modify the same crawling_database,
         # creating the tables only if it is a fresh experiment (whose data hasn't been processed yet), and
         # handling the browser_ids marking the ones that have already been processed so after preprocesses,
         # we only update the tables with all the data from the browsers of the new crawlings that haven't been processed yet.
 
         def read_browser_ids() -> Tuple:
-            file_path = f"experiments/{self.experiment_name}_config.json"
+            file_path = Path(
+                self.experiment_data_dir + f"{self.experiment_name}_config.json"
+            )
             # File exists, load the existing JSON
             with open(file_path, "r") as f:
                 experiment_config_json = json.load(f)
@@ -442,149 +355,79 @@ class DataProcesser:
             return clear_browser_ids, oba_browser_ids
 
         # Connect to crawling SQLite database
-        crawl_conn = sqlite3.connect(Path(self.experiment_data_path))
+        # sqlite_path = Path(self.experiment_data_dir + "crawl-data.sqlite")
+        sqlite_path = Path(self.experiment_data_dir + "crawl-data.sqlite")
+        crawl_conn = sqlite3.connect(sqlite_path)
         crawl_cursor = crawl_conn.cursor()
-
-        # Create tables
-        ads_conn = sqlite3.connect(Path(self.ads_database))
-        ads_cursor = ads_conn.cursor()
-        self._create_ad_tables_if_not_exist(ads_cursor)
 
         # Fetch both browser ids (clean run and crawl)
         clear_browser_ids, oba_browser_ids = read_browser_ids()
 
-        # Set static ads for the Instance
-        self._set_and_save_static_ads_and_control_sites(
-            crawl_cursor, ads_cursor, clear_browser_ids
-        )
+        self.filter_ads(non_ads=True, unspecific_ads=True)
 
         # Set dynamic ads for the Instance
-        self._set_and_save_dynamic_ads(crawl_cursor, ads_cursor, oba_browser_ids)
+        self.process_browsers_new_ads(crawl_cursor, crawl_conn, oba_browser_ids)
 
+        # Save the changes
         crawl_conn.commit()
-        ads_conn.commit()
 
-        # Close the connection to the SQLite database
-        crawl_conn.close()
-        ads_conn.close()
+    def filter_ads(self, non_ads: bool = False, unspecific_ads: bool = False):
+        """
+        Marks the ADS that have ad_urls known not to be ads as non_ad or unspecific_ad in the database. This is done by matching substrings of the ad_url with the known not ad urls.
+        Non ads are urls of ad provider settings, privacy policies, etc.
+        Unspecific ads urls are ads whose ad_url was captured as just the domain of a search engine where the ad was displayed as a result, therefore the specific ad is lost.
 
-        # Write output_data to output JSON file
-        with open(self.output_path, "w") as output_file:
-            output_data = {
-                "static_ads": self.static_ads,
-                "dynamic_ads": self.dynamic_ads,
-            }
-            json.dump(output_data, output_file, indent=2)
+        """
+        # Connect to crawling SQLite database
+        sqlite_path = Path(self.experiment_data_dir + "crawl-data.sqlite")
+        crawl_conn = sqlite3.connect(sqlite_path)
+        crawl_cursor = crawl_conn.cursor()
 
+        if non_ads:
+            # Read the known not ad urls
+            with open("oba/resources/non_ads_urls.txt", "r") as f:
+                not_ad_urls = f.read().splitlines()
 
-def resolve_redirects_with_requests(url):
-    try:
-        # print(f"Attempting to resolve redirect for {url} using requests...")
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
-        }
-        response = requests.get(url, headers=headers, timeout=10, allow_redirects=True)
-        # if response.url:
-        # print(f"Resolved URL using requests: {response.url}")
-        return response.url
-    except requests.RequestException as e:
-        # print(f"Failed with requests for {url}: {e}")
-        return None  # Return None to indicate failure
+            # Mark the known non ad urls as not_ad if the url contains the non ad url
+            for not_ad_url in not_ad_urls:
+                crawl_cursor.execute(
+                    "UPDATE visit_advertisements SET non_ad=1 WHERE ad_url LIKE :ad_url",
+                    {"ad_url": f"%{not_ad_url}%"},
+                )
 
+            # Save the changes
+            crawl_conn.commit()
 
-def resolve_redirects_with_selenium(url, firefox_binary_path):
-    # print(f"Attempting to resolve redirect for {url} using Selenium...")
-    firefox_options = FirefoxOptions()
-    firefox_options.binary = firefox_binary_path
-    firefox_options.add_argument("--headless")  # Ensure Selenium runs in headless mode
+        if unspecific_ads:
+            # Read the known not ad urls
+            with open("oba/resources/unspecific_ads_urls.txt", "r") as f:
+                unspecific_ads = f.read().splitlines()
 
-    with webdriver.Firefox(options=firefox_options) as driver:
-        driver.get(url)
-        # It's used here to wait for elements to load, especially useful for JS-heavy sites.
-        driver.implicitly_wait(10)  # Adjust based on the expected load time
-        final_url = driver.current_url
-        # print(f"Resolved URL using Selenium: {final_url}")
-        return final_url
+            # Mark the known unspecific ad urls as not_ad
+            for unspecific_ad_url in unspecific_ads:
+                crawl_cursor.execute(
+                    "UPDATE visit_advertisements SET unspecific_ad=1 WHERE ad_url LIKE :ad_url",
+                    {"ad_url": f"%{unspecific_ad_url}%"},
+                )
 
+            # Save the changes
+            crawl_conn.commit()
 
-def get_landing_pages(ad_urls):
-    firefox_binary_path = get_firefox_binary_path()
-    landing_pages = []
-
-    for url in ad_urls:
-        print(f"Processing URL: {url}")
-        final_url = resolve_redirects_with_requests(url)
-        if not final_url:  # If requests fails, try with Selenium
-            final_url = resolve_redirects_with_selenium(url, firefox_binary_path)
-        landing_pages.append(
-            final_url if final_url else url
-        )  # Fallback to the original URL if all methods fail
-        print(f"Final URL: {final_url}\n")
-
-    return landing_pages
+        print("Finished marking ads filter columns")
 
 
-async def categorize_url_with_retries(session, categorizer, url, retries=3):
-    attempt = 0
-    while attempt < retries:
-        result = await categorizer.categorize(session, url)
-        if result["status_code"] in (200, 202):
-            return result
-        else:
-            print(
-                f"Retry {attempt + 1} for URL: {url} due to error: {result.get('data', {}).get('message', 'Unknown error')}"
-            )
-            attempt += 1
-            await asyncio.sleep(1)  # Wait a bit before retrying
-    return None  # Return None to indicate that retries were exhausted without success
-
-
-async def categorize_urls(api_key, secret_key, urls):
-    async with aiohttp.ClientSession() as session:
-        categorizer = Categorizer(api_key, secret_key)
-        tasks = [categorizer.categorize(session, url) for url in urls]
-        results = await asyncio.gather(*tasks)
-
-        # Initialize a dictionary to group URLs by category
-        categories_grouped = defaultdict(list)
-
-        for url, result in zip(urls, results):
-            if (
-                result
-                and result["status_code"] == 200
-                and result["categories_response"]
-            ):
-                # Assuming the most relevant category is the first one
-                primary_category = result["categories_response"][0]["category"]
-                categories_grouped[primary_category].append(url)
-            elif result and result["status_code"] == 202:
-                print(f"URL: {url} - Categories are being calculated. Check back soon.")
-            else:
-                categories_grouped["Uncategorized"].append(url)
-
-        # Print the insights
-        for category, urls in categories_grouped.items():
-            print(f"Category: {category}, Number of Landing Pages: {len(urls)}")
-            for url in urls:
-                print(f"- {url}")
-            print("")
-
-
-# ads_handler = DataProcesser(
-#     "airtravel_cookie_banner_yes", webshrinker_credentials=credentials
+# style_and_fashion_experiment_accept_data_processer = DataProcesser(
+#     "style_and_fashion_experiment_accept", WEBSHRINKER_CREDENTIALS
 # )
-# ads_handler.crawling_data_process()
-with open(
-    "./datadir/ads_screenshots/screenshots/theweathernetwork/ad_urls.json", "r"
-) as f:
-    ad_urls = json.load(f)
 
-landing_pages = get_landing_pages(ad_urls)
+# # style_and_fashion_experiment_accept_data_processer.update_crawling_data_process()
+# style_and_fashion_experiment_accept_data_processer.filter_ads(
+#     non_ads=True, unspecific_ads=True
+# )
 
-asyncio.run(
-    categorize_urls(
-        WEBSHRINKER_CREDENTIALS["api_key"],
-        WEBSHRINKER_CREDENTIALS["secret_key"],
-        landing_pages,
-    )
+test_experiment = DataProcesser(
+    "test_nohup_style_and_fashion_experiment_accept", WEBSHRINKER_CREDENTIALS
 )
+
+test_experiment.filter_ads(non_ads=True, unspecific_ads=True)
+test_experiment.update_crawling_data_process()

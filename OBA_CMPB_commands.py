@@ -195,7 +195,7 @@ class ExtractAdsCommand(BaseCommand):
                     Data.sql_addr = manager_params.storage_controller_address
                     for ad_url in possible_ad_urls:
                         Data.save_record_in_sql(
-                            TableName("advertisements"),
+                            TableName("visit_advertisements"),
                             {
                                 "visit_id": self.visit_id,
                                 "browser_id": self.browser_id,
@@ -254,7 +254,7 @@ class ExtractAdsCommand(BaseCommand):
                         )
                         for ad_url in possible_ad_urls:
                             Data.save_record_in_sql(
-                                TableName("advertisements"),
+                                TableName("visit_advertisements"),
                                 {
                                     "visit_id": self.visit_id,
                                     "browser_id": self.browser_id,
