@@ -14,12 +14,13 @@
 */
 CREATE TABLE IF NOT EXISTS landing_page_categories (
   category_id INTEGER PRIMARY KEY NOT NULL,
-  landing_page_id INTEGER,
+  landing_page_id INTEGER NOT NULL,
   landing_page_url TEXT NOT NULL,
   category_code TEXT NOT NULL,
   category_name TEXT NOT NULL,
   parent_category TEXT NOT NULL,
-  confident NOT NULL
+  confident BOOLEAN NOT NULL,
+  FOREIGN KEY(landing_page_id) REFERENCES landing_pages(landing_page_id)
 );
 
 CREATE TABLE IF NOT EXISTS landing_pages (
@@ -49,7 +50,7 @@ CREATE TABLE IF NOT EXISTS visit_advertisements (
     unspecific_ad BOOLEAN DEFAULT NULL,
     FOREIGN KEY(visit_id) REFERENCES visits(visit_id),
     FOREIGN KEY(browser_id) REFERENCES crawl(browser_id),
-    FOREIGN KEY(landing_page_id) REFERENCES ad_landing_page(landing_page_id)
+    FOREIGN KEY(landing_page_id) REFERENCES landing_pages(landing_page_id)
 );
 
 CREATE TABLE IF NOT EXISTS visits (

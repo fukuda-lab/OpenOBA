@@ -39,7 +39,7 @@ WEBSHRINKER_CREDENTIALS = {
     "api_key": "GhU39K7bdfvdxRlcnEkT",
     "secret_key": "ZwnCzHIpw08DF10Fmz5c",
 }
-DATA_FROM_VOLUME = False
+DATA_FROM_VOLUME = True
 
 
 class DataProcesser:
@@ -55,13 +55,17 @@ class DataProcesser:
         if webshrinker_credentials:
             self.categorizer = Categorizer(**webshrinker_credentials)
 
-        # Dirs, maybe would be better in a dictionary Paths
-        self.source_pages_dir = f"../datadir/{self.experiment_name}/sources"
-
+        print("Loading experiment from: ")
         if DATA_FROM_VOLUME:
-            self.experiment_data_dir = f"/Volumes/FOBAM_data/28_02_style_and_fashion/datadir/{self.experiment_name}/"
+            self.experiment_data_dir = (
+                f"/Volumes/FOBAM_data/8_days/datadir/{self.experiment_name}/"
+            )
+            self.sqlite_path = Path(self.experiment_data_dir + "crawl-data-copy.sqlite")
+            print(self.sqlite_path)
         else:
-            self.experiment_data_dir = f"datadir/{self.experiment_name}/"
+            self.experiment_data_dir = f"/datadir/{self.experiment_name}/"
+            self.sqlite_path = Path(self.experiment_data_dir + "crawl-data.sqlite")
+            print(self.sqlite_path)
 
         # self.static_ads = []
         # self.dynamic_ads = defaultdict(list)
@@ -131,65 +135,75 @@ class DataProcesser:
             print(f"[ASYNC CATEGORIZE LANDING PAGE] {landing_page_url}")
             async with semaphore:
                 async with aiohttp.ClientSession() as session:
-                    response = await self.categorizer.categorize(
-                        session, landing_page_url, taxonomy=taxonomy
-                    )
-                    delay = 1  # Initial delay in seconds
-                    while True:
-                        if response["status_code"] == 200:
-                            # TODO: check case where we would need more than one "top_level_category"
-                            print(
-                                f"[CATEGORIES RESPONSE] {response['categories_response']}"
-                            )
-                            for result in response["categories_response"]:
-                                # Get the parent category from the IAB_CATEGORIES dictionary
-                                parent_category_code = result["taxonomy_id"].split("-")[
-                                    0
-                                ]
-                                parent_category_name = IAB_CATEGORIES.get(
-                                    parent_category_code
-                                ).get(parent_category_code)
+                    try:
+                        response = await self.categorizer.categorize(
+                            session, landing_page_url, taxonomy=taxonomy
+                        )
+                        delay = 1  # Initial delay in seconds
+                        while True:
+                            if response["status_code"] == 200:
+                                # TODO: check case where we would need more than one "top_level_category"
+                                print(
+                                    f"[CATEGORIES RESPONSE] {response['categories_response']}"
+                                )
+                                for result in response["categories_response"]:
+                                    # Get the parent category from the IAB_CATEGORIES dictionary
+                                    parent_category_code = result["taxonomy_id"].split(
+                                        "-"
+                                    )[0]
+                                    parent_category_name = IAB_CATEGORIES.get(
+                                        parent_category_code
+                                    ).get(parent_category_code)
 
+                                    crawled_data_cursor.execute(
+                                        LandingPageCategoriesQueries.InsertCategoryQuery,
+                                        {
+                                            "landing_page_id": landing_page_id,
+                                            "landing_page_url": landing_page_url,
+                                            "category_name": result["category"],
+                                            "category_code": result["taxonomy_id"],
+                                            "parent_category": parent_category_name,
+                                            "confident": (
+                                                1 if result["confident"] else 0
+                                            ),
+                                        },
+                                    )
+                                # Update the landing page with categorized = 1
                                 crawled_data_cursor.execute(
-                                    LandingPageCategoriesQueries.InsertCategoryQuery,
+                                    LandingPagesQueries.UpdateLandingPageCategorizedQuery,
                                     {
+                                        "categorized": 1,
                                         "landing_page_id": landing_page_id,
-                                        "landing_page_url": landing_page_url,
-                                        "category_name": result["category"],
-                                        "category_code": result["taxonomy_id"],
-                                        "parent_category": parent_category_name,
-                                        "confident": 1 if result["confident"] else 0,
                                     },
                                 )
-                            # Update the landing page with categorized = 1
-                            crawled_data_cursor.execute(
-                                LandingPagesQueries.UpdateLandingPageCategorizedQuery,
-                                {"categorized": 1, "landing_page_id": landing_page_id},
-                            )
 
-                            # TODO: Implement progress bar
-                            # progress.update(1)
-                            print(
-                                f"[SUCCESS] Fetched categories for {landing_page_url}"
-                            )
-                            break
-                        elif response["status_code"] == 429:
-                            print(
-                                f"[WARNING] Rate limit exceeded for {landing_page_url}. Retrying in {delay} seconds..."
-                            )
-                            await asyncio.sleep(delay)
-                            if delay < 4:
-                                delay *= 2  # Double the delay for each retry
+                                # TODO: Implement progress bar
+                                # progress.update(1)
+                                print(
+                                    f"[SUCCESS] Fetched categories for {landing_page_url}"
+                                )
+                                break
+                            elif response["status_code"] == 429:
+                                print(
+                                    f"[WARNING] Rate limit exceeded for {landing_page_url}. Retrying in {delay} seconds..."
+                                )
+                                await asyncio.sleep(delay)
+                                if delay < 4:
+                                    delay *= 2  # Double the delay for each retry
+                                else:
+                                    delay += (
+                                        1  # Add only one second after for 4 seconds
+                                    )
+
                             else:
-                                delay += 1  # Add only one second after for 4 seconds
+                                print(f"[ERROR] {response}")
+                                break
+                    except Exception as e:
+                        print(f"[ERROR while categorizing URL] {e}")
 
-                        else:
-                            print(f"[ERROR] {response}")
-                            break
-
-        visits_number = 0
         # Traverse all the browsers from the experiment
         for index, browser_id in enumerate(oba_browser_ids):
+            visits_number = 0
             print(
                 f"[BROWSER ADS START] Starting crawled data dynamic ads extraction of browser {index + 1}/{len(oba_browser_ids)}..."
             )
@@ -355,9 +369,8 @@ class DataProcesser:
             return clear_browser_ids, oba_browser_ids
 
         # Connect to crawling SQLite database
-        # sqlite_path = Path(self.experiment_data_dir + "crawl-data.sqlite")
-        sqlite_path = Path(self.experiment_data_dir + "crawl-data.sqlite")
-        crawl_conn = sqlite3.connect(sqlite_path)
+
+        crawl_conn = sqlite3.connect(self.sqlite_path)
         crawl_cursor = crawl_conn.cursor()
 
         # Fetch both browser ids (clean run and crawl)
@@ -379,8 +392,7 @@ class DataProcesser:
 
         """
         # Connect to crawling SQLite database
-        sqlite_path = Path(self.experiment_data_dir + "crawl-data.sqlite")
-        crawl_conn = sqlite3.connect(sqlite_path)
+        crawl_conn = sqlite3.connect(self.sqlite_path)
         crawl_cursor = crawl_conn.cursor()
 
         if non_ads:
@@ -425,9 +437,9 @@ class DataProcesser:
 #     non_ads=True, unspecific_ads=True
 # )
 
-test_experiment = DataProcesser(
-    "test_nohup_style_and_fashion_experiment_accept", WEBSHRINKER_CREDENTIALS
-)
+# test_experiment = DataProcesser(
+#     "test_nohup_style_and_fashion_experiment_accept", WEBSHRINKER_CREDENTIALS
+# )
 
-test_experiment.filter_ads(non_ads=True, unspecific_ads=True)
-test_experiment.update_crawling_data_process()
+# test_experiment.filter_ads(non_ads=True, unspecific_ads=True)
+# test_experiment.update_crawling_data_process()

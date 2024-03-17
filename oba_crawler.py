@@ -548,7 +548,6 @@ class OBAMeasurementExperiment:
                 )
             else:
                 # CONTROL
-                # If we start having more than one control visit sequence in this list, we must fix next_site_rank
                 sequence_list = [
                     self._dynamically_imported.control_site_visit_sequence(
                         random.choice(self.control_pages),
