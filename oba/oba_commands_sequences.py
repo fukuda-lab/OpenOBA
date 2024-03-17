@@ -16,8 +16,8 @@ from openwpm.command_sequence import (
 from openwpm.commands.browser_commands import GetCommand
 
 TIME_OUT = 60  # OpenWPM timeout = TIME_OUT*11, Selenium timeout = TIME_OUT
-TESTING = True
-CONTROL_SITE_WAIT_REF = 120
+TESTING = False
+CONTROL_SITE_WAIT_REF = 60
 TRAINING_SITE_WAIT_REF = 90
 
 
@@ -45,11 +45,9 @@ def control_site_visit_sequence(
     wait_time = random.randint(int(CONTROL_SITE_WAIT_REF / 2), CONTROL_SITE_WAIT_REF)
     if cookie_banner_action == 0:
         control_site_sequence.append_command(
-            GetCommand(control_site, sleep=wait_time if not clean_run else 10),
+            GetCommand(control_site, sleep=wait_time if not TESTING else 10),
             timeout=(
-                wait_time + 2 * CONTROL_SITE_WAIT_REF
-                if not clean_run
-                else TIME_OUT * 11
+                wait_time + 2 * CONTROL_SITE_WAIT_REF if not TESTING else TIME_OUT * 11
             ),
         )
     else:

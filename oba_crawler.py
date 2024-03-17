@@ -44,9 +44,6 @@ LATEST_CATEGORIZED_TRANCO_LIST_ID = "V929N"
 DEFAULT_N_PAGES = 10000
 EXPOVAR_MEAN = 180
 TESTING = False
-CONTROL_RUN_SITES = [
-    
-]
 # LATEST_CATEGORIZED_TRANCO_LIST_ID = "N7WQW" #Previous
 # DEFAULT_N_PAGES = 5000 # Previous
 
@@ -66,6 +63,7 @@ class OBAMeasurementExperiment:
         webshrinker_credentials: WebShrinkerCredentials = None,
         # Display mode for the OBA browser
         display_mode: Literal["headless", "native"] = "headless",
+        control_visits_urls: list = None,
     ):
         self.start_time = time.time()
         self.experiment_name = experiment_name
@@ -126,6 +124,8 @@ class OBAMeasurementExperiment:
             # "http://apnews.com",
             # "http://reuters.com"
         ]
+
+        self.control_visits_urls = control_visits_urls
 
         # Browser profile validation
         if fresh_experiment and Path(self.data_dir).exists():
@@ -328,29 +328,29 @@ class OBAMeasurementExperiment:
         # Create folders
         os.makedirs(self.data_dir + "sources", exist_ok=True)
         os.makedirs(self.data_dir + "screenshots", exist_ok=True)
-        os.makedirs(self.data_dir + f"results/{self.experiment_name}", exist_ok=True)
+        os.makedirs(self.data_dir + f"results", exist_ok=True)
 
         # Make clean runs
-        if do_a_clean_run:
-            for control_site in self.control_pages:
-                command_sequence = (
-                    self._dynamically_imported.control_site_visit_sequence(
-                        control_site, clean_run=True
-                    )
-                )
-                manager.execute_command_sequence(command_sequence, index=0)
-            # [TESTING] JUST FOR TESTING, ONLY 1 CLEAN VISIT RUN
-            # command_sequence = self._dynamically_imported.control_site_visit_sequence(self.control_pages[0], clean_run=True)
-            # manager.execute_command_sequence(command_sequence, index=0)
+        # if do_a_clean_run:
+        #     for control_site in self.control_pages:
+        #         command_sequence = (
+        #             self._dynamically_imported.control_site_visit_sequence(
+        #                 control_site, clean_run=True
+        #             )
+        #         )
+        #         manager.execute_command_sequence(command_sequence, index=0)
+        # [TESTING] JUST FOR TESTING, ONLY 1 CLEAN VISIT RUN
+        # command_sequence = self._dynamically_imported.control_site_visit_sequence(self.control_pages[0], clean_run=True)
+        # manager.execute_command_sequence(command_sequence, index=0)
 
         # Create the training browser profile
         # This command sequence needs that the profile_archive_dir is set in the browser parameters. (_task_manager_config)
-        browser_creation = (
-            self._dynamically_imported.individual_training_visit_sequence(
-                random.choice(self.training_pages), creation=True, sleep=1
-            )
-        )
-        manager.execute_command_sequence(browser_creation, index=1)
+        # browser_creation = (
+        #     self._dynamically_imported.individual_training_visit_sequence(
+        #         random.choice(self.training_pages), creation=True, sleep=1
+        #     )
+        # )
+        # manager.execute_command_sequence(browser_creation, index=1)
 
         print("EXPERIMENT DIRECTORIES SET UP")
 
@@ -372,8 +372,8 @@ class OBAMeasurementExperiment:
             amount_of_visits = cursor.fetchone()[0]
             return amount_of_visits
 
-        if not self.training_pages:
-            raise RuntimeError("Experiment missing training_pages")
+        # if not self.training_pages:
+        #     raise RuntimeError("Experiment missing training_pages")
 
         try:
             # Manager context to start the experiment
@@ -388,7 +388,7 @@ class OBAMeasurementExperiment:
                 if self.fresh_experiment:
                     next_site_rank = 1
                     self._fresh_experiment_setup_and_clean_run(
-                        manager, do_a_clean_run=self.do_clean_runs
+                        manager, do_a_clean_run=False
                     )
                 else:
                     next_site_rank = get_amount_of_visits() + 1
@@ -396,8 +396,17 @@ class OBAMeasurementExperiment:
                 print("Launching OBA Crawler... \n")
                 # self.experiment_crawling(next_site_rank, manager, hours, minutes)
                 # In stead of doing the experiment_crawling, we will do a control run where we will visit the control pages for each option in the same order and amount than in the experiments to then be able to compare the ads found in the control runs with the ones found in the experiments
-                
-                for control_site in 
+
+                for control_site in self.control_visits_urls:
+                    command_sequence = (
+                        self._dynamically_imported.control_site_visit_sequence(
+                            control_site=control_site,
+                            next_site_rank=next_site_rank,
+                            cookie_banner_action=self.cookie_banner_action,
+                            clean_run=True,
+                        )
+                    )
+                    manager.execute_command_sequence(command_sequence, index=0)
 
                 # This logs an ERROR
                 manager.close()
