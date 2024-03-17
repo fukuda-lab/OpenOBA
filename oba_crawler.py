@@ -398,6 +398,9 @@ class OBAMeasurementExperiment:
                 # In stead of doing the experiment_crawling, we will do a control run where we will visit the control pages for each option in the same order and amount than in the experiments to then be able to compare the ads found in the control runs with the ones found in the experiments
 
                 for control_site in self.control_visits_urls:
+                    print(
+                        f"---- Visiting {control_site} for the control run ---- VISIT NUMBER: {next_site_rank} / {len(self.control_visits_urls)} ----"
+                    )
                     command_sequence = (
                         self._dynamically_imported.control_site_visit_sequence(
                             control_site=control_site,
@@ -407,6 +410,7 @@ class OBAMeasurementExperiment:
                         )
                     )
                     manager.execute_command_sequence(command_sequence, index=0)
+                    next_site_rank += 1
 
                 # This logs an ERROR
                 manager.close()
