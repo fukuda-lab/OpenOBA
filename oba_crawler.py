@@ -44,6 +44,9 @@ LATEST_CATEGORIZED_TRANCO_LIST_ID = "V929N"
 DEFAULT_N_PAGES = 10000
 EXPOVAR_MEAN = 180
 TESTING = False
+CONTROL_RUN_SITES = [
+    
+]
 # LATEST_CATEGORIZED_TRANCO_LIST_ID = "N7WQW" #Previous
 # DEFAULT_N_PAGES = 5000 # Previous
 
@@ -391,7 +394,10 @@ class OBAMeasurementExperiment:
                     next_site_rank = get_amount_of_visits() + 1
 
                 print("Launching OBA Crawler... \n")
-                self.experiment_crawling(next_site_rank, manager, hours, minutes)
+                # self.experiment_crawling(next_site_rank, manager, hours, minutes)
+                # In stead of doing the experiment_crawling, we will do a control run where we will visit the control pages for each option in the same order and amount than in the experiments to then be able to compare the ads found in the control runs with the ones found in the experiments
+                
+                for control_site in 
 
                 # This logs an ERROR
                 manager.close()
