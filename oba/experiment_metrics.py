@@ -17,7 +17,11 @@ class ExperimentMetrics:
         """Initialize the analyzer with the path to the SQLite database."""
         self.experiment_name = experiment_name
         # self.data_path = f"../datadir/{experiment_name}/crawl-data.sqlite"
-        self.data_path = f"/Volumes/FOBAM_data/8_days/datadir/{self.experiment_name}/crawl-data-copy.sqlite"
+        # self.data_path = f"/Volumes/FOBAM_data/8_days/datadir/{self.experiment_name}/crawl-data-copy.sqlite"
+        # self.conn = sqlite3.connect(self.data_path)
+        self.data_path = (
+            f"/Volumes/FOBAM_data/control_runs/{self.experiment_name}/crawl-data.sqlite"
+        )
         self.conn = sqlite3.connect(self.data_path)
 
     def _execute_query(self, query):
@@ -42,7 +46,7 @@ class ExperimentMetrics:
     def get_control_visits_by_url_and_browser(self):
         """Retrieve a summary of visits."""
         query = """
-            SELECT browser_id, site_url, COUNT(*) as num_visits
+            SELECT site_url, COUNT(*) as num_visits
             FROM site_visits
             WHERE site_url IN (
                 'http://myforecast.com/',
@@ -51,30 +55,23 @@ class ExperimentMetrics:
                 'http://weather.com/',
                 'http://weather2umbrella.com/'
             )
-            AND browser_id IN (
-                2902477846,
-                505764208
-            )
-            GROUP BY browser_id, site_url
-            ORDER BY browser_id, site_url;
+            GROUP BY site_url
+            ORDER BY site_url;
         """
         results = self._execute_query(query)
-        return pd.DataFrame(results, columns=["browser_id", "URL", "NumVisits"])
+        return pd.DataFrame(results, columns=["URL", "NumVisits"])
 
     def get_ads_summary(self):
         """Retrieve a summary of advertisements."""
         query = """
-        SELECT browser_id, visit_url, COUNT(DISTINCT ad_url) as num_ads
+        SELECT visit_url, COUNT(DISTINCT ad_url) as num_ads
         FROM visit_advertisements
-        WHERE categorized = TRUE AND non_ad IS NULL AND unspecific_ad IS NULL AND browser_id IN (
-            2902477846,
-            505764208
-        )
-        GROUP BY browser_id, visit_url
-        ORDER BY browser_id, visit_url;
+        WHERE categorized = TRUE AND non_ad IS NULL AND unspecific_ad IS NULL
+        GROUP BY visit_url
+        ORDER BY visit_url;
         """
         results = self._execute_query(query)
-        return pd.DataFrame(results, columns=["browser_id", "Visit URL", "NumAds"])
+        return pd.DataFrame(results, columns=["Visit URL", "NumAds"])
 
     def get_landing_pages_summary(self):
         """Retrieve a summary of landing pages and their categorization status."""

@@ -19,10 +19,14 @@ class OBAQuantifier:
         self.experiment_name = experiment_name
         # self.data_path = f"../datadir/{experiment_name}/crawl-data.sqlite"
         if DATA_FROM_VOLUME:
+            # self.experiment_data_dir = (
+            #     f"/Volumes/FOBAM_data/8_days/datadir/{self.experiment_name}/"
+            # )
+            # self.db_path = f"{self.experiment_data_dir}/crawl-data-copy.sqlite"
             self.experiment_data_dir = (
-                f"/Volumes/FOBAM_data/8_days/datadir/{self.experiment_name}/"
+                f"/Volumes/FOBAM_data/control_runs/{self.experiment_name}/"
             )
-            self.db_path = f"{self.experiment_data_dir}/crawl-data-copy.sqlite"
+            self.db_path = f"{self.experiment_data_dir}crawl-data.sqlite"
         else:
             self.experiment_data_dir = f"datadir/{self.experiment_name}/"
             self.db_path = f"{self.experiment_data_dir}/crawl-data.sqlite"
@@ -115,7 +119,7 @@ class OBAQuantifier:
                 FROM visit_advertisements va
                 LEFT JOIN landing_pages lp ON va.landing_page_id = lp.landing_page_id
                 LEFT JOIN landing_page_categories lpc ON lp.landing_page_id = lpc.landing_page_id
-                WHERE va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND va.clean_run = FALSE AND lpc.category_name != "Uncategorized"
+                WHERE va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND va.clean_run = TRUE AND lpc.category_name != "Uncategorized"
                 GROUP BY va.browser_id
             """
 
@@ -132,7 +136,7 @@ class OBAQuantifier:
 
         sorted_result = []
 
-        for browser_id in self.oba_browsers_ids:
+        for browser_id in self.clean_run_browsers_ids:
             for row in result:
                 if row["browser_id"] == browser_id:
                     sorted_result.append(row)
@@ -140,6 +144,13 @@ class OBAQuantifier:
 
         cursor.close()
         return sorted_result
+
+    def fetch_all_ads_grouped_by_artificial_session(
+        self, visits_url_list_ordered: List[str], category: str = None
+    ) -> List[Dict]:
+        """Given a list of URLS, simulate different sessions mimicking the behavior of different browser_ids and return the number of distinct ad_urls and the number of ad_urls whose landing page was categorized with the given category. The order of the list will be the order of the simulated sessions.
+        Bear in mind that the database only has one browser_id, so the simulated sessions will not
+        """
 
     def plot_ads_by_browser_id(
         self,

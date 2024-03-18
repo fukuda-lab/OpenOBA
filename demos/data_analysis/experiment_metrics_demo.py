@@ -1,6 +1,6 @@
 from oba.experiment_metrics import ExperimentMetrics
 
-analyzer = ExperimentMetrics("style_and_fashion_experiment_accept")
+analyzer = ExperimentMetrics("control_run_accept")
 print(analyzer.get_ads_summary())
 print(analyzer.get_control_visits_by_url_and_browser())
 # print(analyzer.get_visits_by_url_summary())

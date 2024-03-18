@@ -9,7 +9,7 @@ WEBSHRINKER_CREDENTIALS = {
 
 # DataProcesser demo
 style_and_fashion_experiment_accept_data_processer = DataProcesser(
-    "style_and_fashion_experiment_accept", WEBSHRINKER_CREDENTIALS
+    "control_run_accept", WEBSHRINKER_CREDENTIALS
 )
 
 style_and_fashion_experiment_accept_data_processer.filter_ads(

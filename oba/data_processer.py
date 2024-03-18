@@ -57,10 +57,14 @@ class DataProcesser:
 
         print("Loading experiment from: ")
         if DATA_FROM_VOLUME:
+            # self.experiment_data_dir = (
+            #     f"/Volumes/FOBAM_data/8_days/datadir/{self.experiment_name}/"
+            # )
             self.experiment_data_dir = (
-                f"/Volumes/FOBAM_data/8_days/datadir/{self.experiment_name}/"
+                f"/Volumes/FOBAM_data/control_runs/{self.experiment_name}/"
             )
-            self.sqlite_path = Path(self.experiment_data_dir + "crawl-data-copy.sqlite")
+            self.sqlite_path = Path(self.experiment_data_dir + "crawl-data.sqlite")
+            # self.sqlite_path = Path(self.experiment_data_dir + "crawl-data-copy.sqlite")
             print(self.sqlite_path)
         else:
             self.experiment_data_dir = f"/datadir/{self.experiment_name}/"
@@ -379,7 +383,8 @@ class DataProcesser:
         self.filter_ads(non_ads=True, unspecific_ads=True)
 
         # Set dynamic ads for the Instance
-        self.process_browsers_new_ads(crawl_cursor, crawl_conn, oba_browser_ids)
+        # self.process_browsers_new_ads(crawl_cursor, crawl_conn, oba_browser_ids)
+        self.process_browsers_new_ads(crawl_cursor, crawl_conn, clear_browser_ids)
 
         # Save the changes
         crawl_conn.commit()

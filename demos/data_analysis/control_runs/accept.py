@@ -1,7 +1,7 @@
 from oba_crawler import OBAMeasurementExperiment
 
 control_run_accept = OBAMeasurementExperiment(
-    "control_run_accept",
+    "control_run_accept_2",
     True,
     do_clean_runs=False,
     cookie_banner_action=1,
