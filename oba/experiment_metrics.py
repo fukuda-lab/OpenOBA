@@ -1,3 +1,4 @@
+import json
 import sqlite3
 
 import os
@@ -10,19 +11,47 @@ from typing import List, Dict, Tuple
 import matplotlib.pyplot as plt
 
 DATA_FROM_VOLUME = True
+DATA_CONTROL_RUNS = False
 
 
 class ExperimentMetrics:
-    def __init__(self, experiment_name: str):
+    def __init__(self, experiment_name: str, control_runs=DATA_CONTROL_RUNS):
         """Initialize the analyzer with the path to the SQLite database."""
+        self.control_runs = control_runs
         self.experiment_name = experiment_name
-        # self.data_path = f"../datadir/{experiment_name}/crawl-data.sqlite"
-        # self.data_path = f"/Volumes/FOBAM_data/8_days/datadir/{self.experiment_name}/crawl-data-copy.sqlite"
-        # self.conn = sqlite3.connect(self.data_path)
-        self.data_path = (
-            f"/Volumes/FOBAM_data/control_runs/{self.experiment_name}/crawl-data.sqlite"
-        )
+        if DATA_FROM_VOLUME:
+            self.experiment_dir = (
+                f"/Volumes/FOBAM_data/8_days/datadir/{self.experiment_name}"
+            )
+            self.data_path = f"{self.experiment_dir}/crawl-data-copy.sqlite"
+        else:
+            self.experiment_dir = f"../datadir/{experiment_name}"
+            self.data_path = f"{self.experiment_dir}/crawl-data.sqlite"
+
+        if control_runs:
+            self.experiment_dir = (
+                f"/Volumes/FOBAM_data/control_runs/{self.experiment_name}"
+            )
+            self.data_path = f"{self.experiment_dir}/crawl-data.sqlite"
+        self.experiment_config = self._read_experiment_config_json()
+        self.oba_browsers = self.experiment_config["browser_ids"]["oba"]
+        self.clean_run_browsers = self.experiment_config["browser_ids"]["clear"]
         self.conn = sqlite3.connect(self.data_path)
+
+    def _read_experiment_config_json(self):
+        """Opens and reads the json file with the configuration for the experiment"""
+        file_path = f"{self.experiment_dir}/{self.experiment_name}_config.json"
+        # Check if the file exists
+        if os.path.isfile(file_path):
+            # File exists, load the existing JSON
+            with open(file_path, "r") as file:
+                experiment_json = json.load(file)
+            return experiment_json
+        else:
+            raise FileNotFoundError(
+                f"Trying to read file in relative path {file_path} which does not"
+                " exist."
+            )
 
     def _execute_query(self, query):
         """Execute a given SQL query and return the results."""
@@ -43,10 +72,53 @@ class ExperimentMetrics:
         results = self._execute_query(query)
         return pd.DataFrame(results, columns=["URL", "NumVisits"])
 
-    def get_control_visits_by_url_and_browser(self):
+    def get_experiment_summary(self):
+        """Retrieve a summary of visits."""
+
+        # First we get the number of control and training visits
+        query = """
+        SELECT 
+            COUNT(CASE WHEN site_rank IS NULL THEN 1 ELSE NULL END) as training_visits,
+            COUNT(CASE WHEN site_rank > 0 THEN site_rank ELSE NULL END) as control_visits
+        FROM site_visits
+        """
+        results_site_visits = self._execute_query(query)
+
+        df = pd.DataFrame(
+            results_site_visits, columns=["TrainingVisits", "ControlVisits"]
+        )
+
+        # Then we get numbers about the ads
+
+        query = """
+       SELECT 
+            COUNT(DISTINCT ad_url) as num_ads,
+            COUNT(DISTINCT CASE WHEN va.non_ad  IS NULL AND va.unspecific_ad IS NULL THEN ad_url ELSE NULL END) as filtered_ads,
+			COUNT(DISTINCT CASE WHEN (va.non_ad IS NULL AND va.unspecific_ad IS NULL) AND va.categorized = TRUE AND lpc.category_name != "Uncategorized" THEN va.ad_url ELSE NULL END) as categorized_ads,
+			COUNT(DISTINCT CASE WHEN (va.non_ad IS NULL AND va.unspecific_ad IS NULL) AND va.categorized = TRUE AND lpc.category_name != "Uncategorized" AND lpc.confident = 1 THEN va.ad_url ELSE NULL END) as confident_ads
+        FROM visit_advertisements va
+        LEFT JOIN landing_pages lp ON va.landing_page_id = lp.landing_page_id
+        LEFT JOIN landing_page_categories lpc ON lp.landing_page_id = lpc.landing_page_id
+        """
+        results_ads = self._execute_query(query)
+
+        df = pd.concat(
+            [
+                df,
+                pd.DataFrame(
+                    results_ads,
+                    columns=["NumAds", "FilteredAds", "CategorizedAds", "ConfidentAds"],
+                ),
+            ],
+            axis=1,
+        )
+
+        return df
+
+    def get_control_visits_by_url_and_browser(self, as_dict=False):
         """Retrieve a summary of visits."""
         query = """
-            SELECT site_url, COUNT(*) as num_visits
+            SELECT browser_id, site_url, COUNT(*) as num_visits
             FROM site_visits
             WHERE site_url IN (
                 'http://myforecast.com/',
@@ -55,11 +127,46 @@ class ExperimentMetrics:
                 'http://weather.com/',
                 'http://weather2umbrella.com/'
             )
-            GROUP BY site_url
-            ORDER BY site_url;
+            GROUP BY browser_id, site_url
+            ORDER BY browser_id, site_url;
         """
         results = self._execute_query(query)
-        return pd.DataFrame(results, columns=["URL", "NumVisits"])
+
+        # Filter and sort the results by browser_id that only appear in the OBA browsers
+        results = [row for row in results if row[0] in self.oba_browsers]
+
+        results = sorted(results, key=lambda x: self.oba_browsers.index(x[0]))
+
+        return results
+        # if as_dict:
+        #     results_dict = {}
+        #     for browser_id, site_url, num_visits in results:
+        #         if browser_id not in results_dict:
+        #             results_dict[browser_id] = {}
+        #         results_dict[browser_id][site_url] = num_visits
+        #     return results_dict
+
+        # return pd.DataFrame(results, columns=["browser_id", "URL", "NumVisits"])
+
+    def get_control_visits_by_browser(self, as_dict=False):
+        """Retrieve a summary of visits."""
+        query = """
+            SELECT browser_id, COUNT(*) as num_visits
+            FROM site_visits
+            WHERE site_url IN (
+                'http://myforecast.com/',
+                'http://weatherbase.com/',
+                'http://theweathernetwork.com/',
+                'http://weather.com/',
+                'http://weather2umbrella.com/'
+            )
+            GROUP BY browser_id;
+        """
+        results = self._execute_query(query)
+        if as_dict:
+            return {row[0]: {row[1]: row[2]} for row in results}
+        else:
+            return pd.DataFrame(results, columns=["browser_id", "NumVisits"])
 
     def get_ads_summary(self):
         """Retrieve a summary of advertisements."""
