@@ -1,8 +1,15 @@
 import sqlite3
 
-experiment_name = "style_and_fashion_experiment_accept"
-experiment_data_dir = f"/Volumes/FOBAM_data/8_days/datadir/{experiment_name}/"
-sqlite_file = f"{experiment_data_dir}/crawl-data-copy.sqlite"
+# EXPERIMENT DATA
+# experiment_name = "style_and_fashion_experiment_accept"
+# experiment_data_dir = f"/Volumes/FOBAM_data/8_days/datadir/{experiment_name}/"
+# sqlite_file = f"{experiment_data_dir}/crawl-data-copy.sqlite"
+
+# CONTROL RUNS DATA
+experiment_name = "control_run_do_nothing"
+experiment_data_dir = f"/Volumes/FOBAM_data/control_runs/{experiment_name}/"
+sqlite_file = f"{experiment_data_dir}/crawl-data.sqlite"
+
 
 # javascript_script
 javascript_script_url_file = f"{experiment_data_dir}/results/javascript_script_url.txt"

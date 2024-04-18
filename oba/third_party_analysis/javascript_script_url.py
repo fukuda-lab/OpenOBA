@@ -3,8 +3,14 @@ from tqdm import tqdm
 from adblockparser import AdblockRules
 import csv
 
-EXPERIMENT_NAME = "style_and_fashion_experiment_do_nothing"
-EXPERIMENT_DIR = f"/Volumes/FOBAM_data/8_days/datadir/{EXPERIMENT_NAME}/"
+# EXPERIMENT IN VOLUME
+# EXPERIMENT_NAME = "style_and_fashion_experiment_do_nothing"
+# EXPERIMENT_DIR = f"/Volumes/FOBAM_data/8_days/datadir/{EXPERIMENT_NAME}/"
+
+
+# Experiment in local
+EXPERIMENT_NAME = "control_run_accept"
+EXPERIMENT_DIR = f"/Users/mateoormeno/Desktop/control_runs/{EXPERIMENT_NAME}/"
 
 easyprivacy_url = "https://easylist.to/easylist/easyprivacy.txt"
 easyprivacy_content = requests.get(easyprivacy_url).text

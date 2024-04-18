@@ -3,8 +3,13 @@ from tqdm import tqdm
 from adblockparser import AdblockRules
 import csv
 
-EXPERIMENT_NAME = "style_and_fashion_experiment_do_nothing"
-EXPERIMENT_DIR = f"/Volumes/FOBAM_data/8_days/datadir/{EXPERIMENT_NAME}/"
+# EXPERIMENT_NAME = "style_and_fashion_experiment_do_nothing"
+# EXPERIMENT_DIR = f"/Volumes/FOBAM_data/8_days/datadir/{EXPERIMENT_NAME}/"
+
+
+# Experiment in local
+EXPERIMENT_NAME = "control_run_reject"
+EXPERIMENT_DIR = f"/Users/mateoormeno/Desktop/control_runs/{EXPERIMENT_NAME}/"
 
 easyprivacy_url = "https://easylist.to/easylist/easyprivacy.txt"
 easyprivacy_content = requests.get(easyprivacy_url).text
@@ -25,7 +30,7 @@ rule_params = {"third-party": True}
 http_requests_file = f"{EXPERIMENT_DIR}/results/http_requests_url.txt"
 with open(http_requests_file, "r") as file:
     http_requests = file.read().splitlines()
-csv_file = f"{EXPERIMENT_DIR}/results/http_requests_url.csv"
+csv_file = f"{EXPERIMENT_DIR}/results/http_requests_url_to_compare.csv"
 with open(csv_file, "w", newline="") as file:
     writer = csv.writer(file)
     writer.writerow(["url", "easyprivacy", "easylist", "adserverlist"])

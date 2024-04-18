@@ -38,6 +38,11 @@ class ExperimentMetrics:
         self.clean_run_browsers = self.experiment_config["browser_ids"]["clear"]
         self.conn = sqlite3.connect(self.data_path)
 
+    def write_results_file_with_data(self, data, file_name):
+        """Write data from a Pandas DataFrame to a file in the specified path."""
+        file_path = f"{self.experiment_dir}/results/{file_name}"
+        data.to_csv(file_path, index=False)
+
     def _read_experiment_config_json(self):
         """Opens and reads the json file with the configuration for the experiment"""
         file_path = f"{self.experiment_dir}/{self.experiment_name}_config.json"
@@ -71,6 +76,30 @@ class ExperimentMetrics:
         """
         results = self._execute_query(query)
         return pd.DataFrame(results, columns=["URL", "NumVisits"])
+
+    def get_ads_by_category_table_all_browsers(self) -> List[Dict]:
+        """Fetch the number of ads per category for all browsers"""
+        if not self.conn:
+            self.connect()
+        cursor = self.conn.cursor()
+        query = """
+                SELECT 
+                    lpc.category_name as category_name,
+                    COUNT(va.ad_url) as ad_urls,
+                    COUNT(DISTINCT va.ad_url) as unique_ad_urls
+                FROM visit_advertisements va
+                LEFT JOIN landing_pages lp ON va.landing_page_id = lp.landing_page_id
+                LEFT JOIN landing_page_categories lpc ON lp.landing_page_id = lpc.landing_page_id
+                WHERE va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL
+                GROUP BY lpc.category_name
+                ORDER BY COUNT(DISTINCT va.ad_url) DESC
+            """
+        cursor.execute(query)
+        ads = cursor.fetchall()
+        cursor.close()
+
+        ads_df = pd.DataFrame(ads, columns=["Category", "NumAds", "UniqueAds"])
+        return ads_df
 
     def get_experiment_summary(self):
         """Retrieve a summary of visits."""

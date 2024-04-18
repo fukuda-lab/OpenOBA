@@ -115,14 +115,6 @@ class OBAMeasurementExperiment:
             "http://theweathernetwork.com/",
             "http://weather.com/",
             "http://weather2umbrella.com/",
-            # "http://www.wunderground.com/",
-            # "http://www.localconditions.com/",
-            # "http://www.accuweather.com/",
-            # "http://cnn.com",
-            # "http://usatoday.com",
-            # "http://cbsnews.com",
-            # "http://apnews.com",
-            # "http://reuters.com"
         ]
 
         self.control_visits_urls = control_visits_urls
