@@ -21,7 +21,7 @@ class ExperimentMetrics:
         self.experiment_name = experiment_name
         if DATA_FROM_VOLUME:
             self.experiment_dir = (
-                f"/Volumes/FOBAM_data/8_days/datadir/{self.experiment_name}"
+                f"/Volumes/LaCie/OpenOBA/oba_runs/{self.experiment_name}"
             )
             self.data_path = f"{self.experiment_dir}/crawl-data-copy.sqlite"
         else:
@@ -30,7 +30,7 @@ class ExperimentMetrics:
 
         if control_runs:
             self.experiment_dir = (
-                f"/Volumes/FOBAM_data/control_runs/{self.experiment_name}"
+                f"/Volumes/LaCie/OpenOBA/control_runs/{self.experiment_name}"
             )
             self.data_path = f"{self.experiment_dir}/crawl-data.sqlite"
         self.experiment_config = self._read_experiment_config_json()
@@ -82,11 +82,28 @@ class ExperimentMetrics:
         if not self.conn:
             self.connect()
         cursor = self.conn.cursor()
+
         query = """
                 SELECT 
                     lpc.category_name as category_name,
-                    COUNT(va.ad_url) as ad_urls,
-                    COUNT(DISTINCT va.ad_url) as unique_ad_urls
+                    COUNT(va.ad_url) as TotalNumAdsURL,
+                    COUNT(DISTINCT va.ad_url) as TotalNumUniqueAdsURL,
+                    COUNT(CASE WHEN va.browser_id = :session_1_browser_id THEN va.ad_url ELSE NULL END) as NumAdsURLSession1,
+                    COUNT(DISTINCT CASE WHEN va.browser_id = :session_1_browser_id THEN va.ad_url ELSE NULL END) as NumUniqueAdsURLSession1,
+                    COUNT(CASE WHEN va.browser_id = :session_2_browser_id THEN va.ad_url ELSE NULL END) as NumAdsURLSession2,
+                    COUNT(DISTINCT CASE WHEN va.browser_id = :session_2_browser_id THEN va.ad_url ELSE NULL END) as NumUniqueAdsURLSession2,
+                    COUNT(CASE WHEN va.browser_id = :session_3_browser_id THEN va.ad_url ELSE NULL END) as NumAdsURLSession3,
+                    COUNT(DISTINCT CASE WHEN va.browser_id = :session_3_browser_id THEN va.ad_url ELSE NULL END) as NumUniqueAdsURLSession3,
+                    COUNT(CASE WHEN va.browser_id = :session_4_browser_id THEN va.ad_url ELSE NULL END) as NumAdsURLSession4,
+                    COUNT(DISTINCT CASE WHEN va.browser_id = :session_4_browser_id THEN va.ad_url ELSE NULL END) as NumUniqueAdsURLSession4,
+                    COUNT(CASE WHEN va.browser_id = :session_5_browser_id THEN va.ad_url ELSE NULL END) as NumAdsURLSession5,
+                    COUNT(DISTINCT CASE WHEN va.browser_id = :session_5_browser_id THEN va.ad_url ELSE NULL END) as NumUniqueAdsURLSession5,
+                    COUNT(CASE WHEN va.browser_id = :session_6_browser_id THEN va.ad_url ELSE NULL END) as NumAdsURLSession6,
+                    COUNT(DISTINCT CASE WHEN va.browser_id = :session_6_browser_id THEN va.ad_url ELSE NULL END) as NumUniqueAdsURLSession6,
+                    COUNT(CASE WHEN va.browser_id = :session_7_browser_id THEN va.ad_url ELSE NULL END) as NumAdsURLSession7,
+                    COUNT(DISTINCT CASE WHEN va.browser_id = :session_7_browser_id THEN va.ad_url ELSE NULL END) as NumUniqueAdsURLSession7,
+                    COUNT(CASE WHEN va.browser_id = :session_8_browser_id THEN va.ad_url ELSE NULL END) as NumAdsURLSession8,
+                    COUNT(DISTINCT CASE WHEN va.browser_id = :session_8_browser_id THEN va.ad_url ELSE NULL END) as NumUniqueAdsURLSession8
                 FROM visit_advertisements va
                 LEFT JOIN landing_pages lp ON va.landing_page_id = lp.landing_page_id
                 LEFT JOIN landing_page_categories lpc ON lp.landing_page_id = lpc.landing_page_id
@@ -94,12 +111,192 @@ class ExperimentMetrics:
                 GROUP BY lpc.category_name
                 ORDER BY COUNT(DISTINCT va.ad_url) DESC
             """
-        cursor.execute(query)
+        cursor.execute(
+            query,
+            {
+                "session_1_browser_id": self.oba_browsers[0],
+                "session_2_browser_id": self.oba_browsers[1],
+                "session_3_browser_id": self.oba_browsers[2],
+                "session_4_browser_id": self.oba_browsers[3],
+                "session_5_browser_id": self.oba_browsers[4],
+                "session_6_browser_id": self.oba_browsers[5],
+                "session_7_browser_id": self.oba_browsers[6],
+                "session_8_browser_id": self.oba_browsers[7],
+            },
+        )
         ads = cursor.fetchall()
         cursor.close()
 
-        ads_df = pd.DataFrame(ads, columns=["Category", "NumAds", "UniqueAds"])
+        ads_df = pd.DataFrame(
+            ads,
+            columns=[
+                "Category",
+                "TotalNumAds",
+                "TotalNumUniqueAdsURL",
+                "NumAdsURLSession1",
+                "NumUniqueAdsURLSession1",
+                "NumAdsURLSession2",
+                "NumUniqueAdsURLSession2",
+                "NumAdsURLSession3",
+                "NumUniqueAdsURLSession3",
+                "NumAdsURLSession4",
+                "NumUniqueAdsURLSession4",
+                "NumAdsURLSession5",
+                "NumUniqueAdsURLSession5",
+                "NumAdsURLSession6",
+                "NumUniqueAdsURLSession6",
+                "NumAdsURLSession7",
+                "NumUniqueAdsURLSession7",
+                "NumAdsURLSession8",
+                "NumUniqueAdsURLSession8",
+            ],
+        )
+
+        print(ads_df)
+
         return ads_df
+
+    def get_ads_by_category_grouped_by_artificial_sessions_and_site_url(
+        self,
+        numvisits_by_browser_id_and_url: List[Tuple[int, str, int]],
+    ) -> List[Dict]:
+        """Given a list of tuples where the first element is the browser_id, the second is the site_url and the third is the number of visits, return the number of distinct ad_urls and the number of distinct ad_urls whose landing page was categorized with the given category for each session."""
+
+        def fetch_ads_by_limits_and_site_url_and_category(
+            cursor,
+            site_url: str,
+            num_visits: int,
+            already_taken: int,
+            category_name: str,
+        ):
+            # print(
+            #     f"Fetching ads for {site_url} with {num_visits} visits. Already taken: {already_taken} visits from this site."
+            # )
+
+            query = """
+                WITH VisitAdCounts AS (
+                    SELECT
+                        sv.site_rank,
+                        COUNT(CASE WHEN lpc.category_name = :category_name THEN va.ad_url ELSE NULL END) AS NumAdsURL,
+                        COUNT(DISTINCT CASE WHEN lpc.category_name = :category_name THEN va.ad_url ELSE NULL END) AS NumUniqueAdsURL
+					FROM site_visits sv 
+                    LEFT JOIN visit_advertisements va ON sv.visit_id = va.visit_id
+                    LEFT JOIN landing_pages lp ON va.landing_page_id = lp.landing_page_id
+                    LEFT JOIN landing_page_categories lpc ON lp.landing_page_id = lpc.landing_page_id
+                    WHERE sv.site_url = :site_url
+                    GROUP BY sv.site_rank
+                ),
+                OrderedVisits AS (
+                    SELECT *,
+                        ROW_NUMBER() OVER (ORDER BY site_rank) AS rownum
+                    FROM VisitAdCounts
+                )
+                SELECT SUM(NumAdsURL), SUM(NumUniqueAdsURL)
+                FROM OrderedVisits
+                WHERE rownum > :already_taken AND rownum <= :already_taken + :num_visits
+                ORDER BY site_rank;
+                """
+
+            data = {
+                "category_name": category_name,
+                "control_run": 1 if self.control_runs else 0,
+                "site_url": site_url,
+                "num_visits": num_visits,
+                "already_taken": already_taken,
+            }
+
+            cursor.execute(query, data)
+
+            # print(query, data)
+
+            result = cursor.fetchall()
+            return result
+
+        if not self.conn:
+            self.connect()
+        cursor = self.conn.cursor()
+
+        # Fetch all the category names found in the database
+        query = """
+            SELECT DISTINCT category_name
+            FROM landing_page_categories
+            """
+        cursor.execute(query)
+        categories = cursor.fetchall()
+        categories = [category[0] for category in categories]
+
+        # print(categories)
+
+        # Initialize the sessions list and the set of seen browser_ids
+        seen_browser_ids = set()
+        sessions = []
+        site_visits_count = {
+            site_url: 0 for _, site_url, _ in numvisits_by_browser_id_and_url
+        }
+
+        for browser_id, site_url, num_visits in numvisits_by_browser_id_and_url:
+
+            if browser_id not in seen_browser_ids:
+                # print("\n" * 2)
+                print((browser_id))
+                # Create a new session dictionary
+                session = {
+                    "browser_id": len(sessions) + 1,
+                }
+                # Initialize the number of ads url for all categories to the session
+                for category in categories:
+                    key_num_ads_url = f"NumAdsURL_{category}"
+                    key_num_unique_ads_url = f"NumUniqueAdsURL_{category}"
+                    session[key_num_ads_url] = 0
+                    session[key_num_unique_ads_url] = 0
+
+                # Append the session to the sessions list and add the browser_id to the seen_browser_ids set
+                sessions.append(session)
+                seen_browser_ids.add(browser_id)
+            else:
+                session = sessions[-1]
+
+            # print("Session: ", session)
+            # print("Site URL: ", site_url)
+            # print("Visits to check: ", num_visits)
+            # print("Site visits: ", site_visits_count)
+
+            # Fetch the ads from num_visits visits to the current site_url, starting from the first visit after the already taken visit
+            for category in categories:
+                query_result = fetch_ads_by_limits_and_site_url_and_category(
+                    cursor,
+                    site_url,
+                    num_visits,
+                    site_visits_count[site_url],
+                    category,
+                )
+
+                # If no ads were found, continue to the next session
+                if not query_result or not query_result[0][0]:
+                    continue
+
+                # Add the new ads to the actual session
+                new_NumAdsURL, new_NumUniqueAdsURL = query_result[0]
+
+                key_num_ads_url = f"NumAdsURL_{category}"
+                key_num_unique_ads_url = f"NumUniqueAdsURL_{category}"
+
+                session[key_num_ads_url] += new_NumAdsURL
+                session[key_num_unique_ads_url] += new_NumUniqueAdsURL
+
+            # Update the number of visits taken from the site_url
+            site_visits_count[site_url] += num_visits
+
+        cursor.close()
+        df = pd.DataFrame(sessions)
+
+        # Add a column with the TotalNumAdsURL and TotalNumUniqueAdsURL for each session
+        df["NumAdsURL_Total"] = df.filter(like="NumAdsURL").sum(axis=1)
+        df["NumUniqueAdsURL_Total"] = df.filter(like="NumUniqueAdsURL").sum(axis=1)
+
+        print(df)
+
+        return df
 
     def get_experiment_summary(self):
         """Retrieve a summary of visits."""

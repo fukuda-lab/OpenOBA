@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 DATA_FROM_VOLUME = True
 DATA_CONTROL_RUNS = False
-RESULTS_DIR = "/Volumes/FOBAM_data/RESULTS/"
+RESULTS_DIR = "/Volumes/LaCie/OpenOBA/RESULTS"
 
 
 class OBAQuantifier:
@@ -27,8 +27,11 @@ class OBAQuantifier:
         # self.data_path = f"../datadir/{experiment_name}/crawl-data.sqlite"
         self.control_runs = control_runs
         if DATA_FROM_VOLUME:
+            # self.experiment_data_dir = (
+            #     f"/Volumes/FOBAM_data/8_days/datadir/{self.experiment_name}"
+            # )
             self.experiment_data_dir = (
-                f"/Volumes/FOBAM_data/8_days/datadir/{self.experiment_name}"
+                f"/Volumes/LaCie/OpenOBA/oba_runs/{self.experiment_name}"
             )
             self.db_path = f"{self.experiment_data_dir}/crawl-data-copy.sqlite"
         else:
@@ -36,7 +39,7 @@ class OBAQuantifier:
             self.db_path = f"{self.experiment_data_dir}/crawl-data.sqlite"
         if control_runs:
             self.experiment_data_dir = (
-                f"/Volumes/FOBAM_data/control_runs/{self.experiment_name}"
+                f"/Volumes/LaCie/OpenOBA/control_runs/{self.experiment_name}"
             )
             self.db_path = f"{self.experiment_data_dir}/crawl-data.sqlite"
 
@@ -121,17 +124,31 @@ class OBAQuantifier:
         if not self.conn:
             self.connect()
         cursor = self.conn.cursor()
-        # COUNT(DISTINCT CASE WHEN lpc.category_name != :category_name THEN va.ad_url END) as unique_ad_urls,
 
+        # query = """
+        #         SELECT
+        #             va.browser_id,
+        #             COUNT(va.ad_url) - COUNT(CASE WHEN lpc.category_name = :category_name THEN va.ad_url END) as NumAdsURL,
+        #             COUNT(CASE WHEN lpc.category_name = :category_name THEN va.ad_url END) as NumAdsURLCategory,
+        #             COUNT(DISTINCT va.ad_url) - COUNT(DISTINCT CASE WHEN lpc.category_name = :category_name THEN va.ad_url END) as NumUniqueAdsURL,
+        #             COUNT(DISTINCT CASE WHEN lpc.category_name = :category_name THEN va.ad_url END) as NumUniqueAdsURLCategory
+        #         FROM visit_advertisements va
+        #         LEFT JOIN landing_pages lp ON va.landing_page_id = lp.landing_page_id
+        #         LEFT JOIN landing_page_categories lpc ON lp.landing_page_id = lpc.landing_page_id
+        #         WHERE va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND va.clean_run = :control_run AND lpc.category_name != "Uncategorized"
+        #         GROUP BY va.browser_id
+        #     """
         query = """
                 SELECT 
                     va.browser_id,
-                    COUNT(DISTINCT va.ad_url) - COUNT(DISTINCT CASE WHEN lpc.category_name = :category_name THEN va.ad_url END) as unique_ad_urls,
-                    COUNT(DISTINCT CASE WHEN lpc.category_name = :category_name THEN va.ad_url END) as ad_urls_in_category
+                    COUNT(CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name != "Uncategorized" AND lpc.category_name != :category_name THEN va.ad_url ELSE NULL END) AS NumAdsURL,
+                    COUNT(CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name = :category_name THEN va.ad_url ELSE NULL END) AS NumAdsURLCategory,
+                    COUNT(DISTINCT CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name != "Uncategorized" AND lpc.category_name != :category_name THEN va.ad_url ELSE NULL END) AS NumUniqueAdsURL,
+                    COUNT(DISTINCT CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name = :category_name THEN va.ad_url ELSE NULL END) AS NumUniqueAdsURLCategory
                 FROM visit_advertisements va
                 LEFT JOIN landing_pages lp ON va.landing_page_id = lp.landing_page_id
                 LEFT JOIN landing_page_categories lpc ON lp.landing_page_id = lpc.landing_page_id
-                WHERE va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND va.clean_run = :control_run AND lpc.category_name != "Uncategorized"
+                WHERE va.clean_run = :control_run
                 GROUP BY va.browser_id
             """
 
@@ -182,8 +199,10 @@ class OBAQuantifier:
                 WITH VisitAdCounts AS (
                     SELECT
                         sv.site_rank,
-                        COUNT(DISTINCT CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name != "Uncategorized" AND lpc.category_name != :category_name THEN va.ad_url ELSE NULL END) AS unique_ad_urls,
-                        COUNT(DISTINCT CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name = :category_name THEN va.ad_url ELSE NULL END) AS ad_urls_in_category
+                        COUNT(CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name != "Uncategorized" AND lpc.category_name != :category_name THEN va.ad_url ELSE NULL END) AS NumAdsURL,
+                        COUNT(CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name = :category_name THEN va.ad_url ELSE NULL END) AS NumAdsURLCategory,
+                        COUNT(DISTINCT CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name != "Uncategorized" AND lpc.category_name != :category_name THEN va.ad_url ELSE NULL END) AS NumUniqueAdsURL,
+                        COUNT(DISTINCT CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name = :category_name THEN va.ad_url ELSE NULL END) AS NumUniqueAdsURLCategory
 					FROM site_visits sv 
                     LEFT JOIN visit_advertisements va ON sv.visit_id = va.visit_id
                     LEFT JOIN landing_pages lp ON va.landing_page_id = lp.landing_page_id
@@ -196,7 +215,7 @@ class OBAQuantifier:
                         ROW_NUMBER() OVER (ORDER BY site_rank) AS rownum
                     FROM VisitAdCounts
                 )
-                SELECT SUM(unique_ad_urls), SUM(ad_urls_in_category)
+                SELECT SUM(NumAdsURL), SUM(NumAdsURLCategory), SUM(NumUniqueAdsURL), SUM(NumUniqueAdsURLCategory)
                 FROM OrderedVisits
                 WHERE rownum > :already_taken AND rownum <= :already_taken + :num_visits
                 ORDER BY site_rank;
@@ -231,8 +250,10 @@ class OBAQuantifier:
                 # Create a new session
                 session = {
                     "browser_id": len(sessions) + 1,
-                    "unique_ad_urls": 0,
-                    "ad_urls_in_category": 0,
+                    "NumAdsURL": 0,
+                    "NumAdsURLCategory": 0,
+                    "NumUniqueAdsURL": 0,
+                    "NumUniqueAdsURLCategory": 0,
                 }
                 sessions.append(session)
                 seen_browser_ids.add(browser_id)
@@ -257,11 +278,18 @@ class OBAQuantifier:
                 continue
 
             # Sum the number of distinct ad_urls and the number of ad_urls in the category
-            new_unique_ad_urls, new_ad_urls_in_category = query_result[0]
+            (
+                new_NumAdsURL,
+                new_NumAdsURLCategory,
+                new_NumUniqueAdsURL,
+                new_NumUniqueAdsURLCategory,
+            ) = query_result[0]
 
             # Add the new ads to the actual session
-            session["unique_ad_urls"] += new_unique_ad_urls
-            session["ad_urls_in_category"] += new_ad_urls_in_category
+            session["NumAdsURL"] += new_NumAdsURL
+            session["NumAdsURLCategory"] += new_NumAdsURLCategory
+            session["NumUniqueAdsURL"] += new_NumUniqueAdsURL
+            session["NumUniqueAdsURLCategory"] += new_NumUniqueAdsURLCategory
 
         cursor.close()
         return sessions
@@ -346,3 +374,38 @@ class OBAQuantifier:
             print(f"Data saved to {markdown_filename}")
 
         plt.close(fig)  # Close the figure to free memory
+
+    def generate_tables_by_session(
+        self,
+        ads_by_browser_id: List[Dict],
+        cookie_banner_option: Literal[0, 1, 2],
+        file_name_suffix: str = "",
+    ):
+        """Given a list of dictionaries with the number of ads in a category and the total number of ads, plot grouped bars and save to file."""
+        # Convert to a pandas DataFrame
+        df = pd.DataFrame(ads_by_browser_id)
+
+        # Change browser_id to integers from 1 to N conserving the order
+        df["browser_id"] = range(1, len(df) + 1)
+        df.rename(columns={"browser_id": "Session"})
+
+        print(df)
+        # Customizing the plot
+        cookie_banner_option_string = ["Ignore", "Accept", "Reject"][
+            cookie_banner_option
+        ]
+
+        if self.control_runs:
+            file_name_suffix = "CONTROL_" + file_name_suffix
+
+        # Write the data to a Markdown table file
+        markdown_filename = f"{self.results_dir}/ads_analysis_{cookie_banner_option_string}_{file_name_suffix}.md"
+        with open(markdown_filename, "w") as file:
+            file.write(df.to_markdown(index=False))
+
+        print(f"Data saved to {markdown_filename}")
+        if RESULTS_DIR:
+            markdown_filename = f"{RESULTS_DIR}/ads_analysis_{cookie_banner_option_string}_{file_name_suffix}.md"
+            with open(markdown_filename, "w") as file:
+                file.write(df.to_markdown(index=False))
+            print(f"Data saved to {markdown_filename}")

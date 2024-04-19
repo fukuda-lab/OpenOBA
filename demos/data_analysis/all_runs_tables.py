@@ -4,18 +4,18 @@ import pandas as pd
 from oba.oba_analysis import OBAQuantifier
 from oba.experiment_metrics import ExperimentMetrics
 
-RESULTS_DIR = "/Volumes/FOBAM_data/RESULTS/"
+RESULTS_DIR = "/Volumes/LaCie/OpenOBA/RESULTS"
 
 
-def get_metrics_plot_and_tables(
-    experiment_name: str, cookie_banner_option: int, category: str
-):
+def get_metrics_tables(experiment_name: str, cookie_banner_option: int, category: str):
+    # OBA RUN
+
     oba_quantifier = OBAQuantifier(
         experiment_name=experiment_name,
         experiment_category=category,
     )
     ads_by_session = oba_quantifier.fetch_all_ads_by_browser_id_as_dict()
-    oba_quantifier.plot_ads_by_browser_id(
+    oba_quantifier.generate_tables_by_session(
         ads_by_session, cookie_banner_option=cookie_banner_option
     )
     oba_quantifier.disconnect()
@@ -24,6 +24,8 @@ def get_metrics_plot_and_tables(
 
     experiment_summary_df = experiment_metrics.get_experiment_summary()
 
+    # CONTROL RUN
+    # This part is for the ordering of amount of visits by URL to be aligned with the experiment_summary_df
     numvisits_by_browser_id_and_url = (
         experiment_metrics.get_control_visits_by_url_and_browser()
     )
@@ -43,7 +45,7 @@ def get_metrics_plot_and_tables(
         )
     )
 
-    control_runs.plot_ads_by_browser_id(
+    control_runs.generate_tables_by_session(
         control_run_ads, cookie_banner_option=cookie_banner_option
     )
 
@@ -70,34 +72,34 @@ def get_metrics_plot_and_tables(
     return summary_df
 
 
-# Call the new function with the appropriate arguments
-summary_df_accept = get_metrics_plot_and_tables(
+# # Call the new function with the appropriate arguments
+summary_df_accept = get_metrics_tables(
     experiment_name="style_and_fashion_experiment_accept",
     cookie_banner_option=1,
     category="Style & Fashion",
 )
 
-# Call the new function with the appropriate arguments
-summary_df_reject = get_metrics_plot_and_tables(
+# # Call the new function with the appropriate arguments
+summary_df_reject = get_metrics_tables(
     experiment_name="style_and_fashion_experiment_reject",
     cookie_banner_option=2,
     category="Style & Fashion",
 )
 
 # Call the new function with the appropriate arguments
-summary_df_do_nothing = get_metrics_plot_and_tables(
+summary_df_do_nothing = get_metrics_tables(
     experiment_name="style_and_fashion_experiment_do_nothing",
     cookie_banner_option=0,
     category="Style & Fashion",
 )
 
 # Concatenate the three dataframes
-summary_df = pd.concat([summary_df_accept, summary_df_reject, summary_df_do_nothing])
+# summary_df = pd.concat([summary_df_accept, summary_df_reject, summary_df_do_nothing])
 
-print(summary_df)
+# print(summary_df)
 
 # Write the summary_df to a markdown file
-summary_df.to_markdown(RESULTS_DIR + "summary_df.md")
+# summary_df.to_markdown(RESULTS_DIR + "summary_df.md")
 
 # # Experiment Accept
 # # OBAQuantifier
