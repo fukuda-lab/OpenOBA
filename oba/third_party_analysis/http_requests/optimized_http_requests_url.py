@@ -10,8 +10,11 @@ from tqdm import tqdm
 
 
 # Experiment in local
-EXPERIMENT_NAME = "control_run_accept"
-EXPERIMENT_DIR = f"/Users/mateoormeno/Desktop/control_runs/{EXPERIMENT_NAME}/"
+# EXPERIMENT_NAME = "control_run_accept"
+# EXPERIMENT_DIR = f"/Users/mateoormeno/Desktop/control_runs/{EXPERIMENT_NAME}/"
+
+experiment_name = "control_run_accept"
+EXPERIMENT_DIR = f"/Volumes/LaCie/OpenOBA/control_runs/{experiment_name}/"
 
 print(f"Fetching rules")
 start_time = time.time()
@@ -34,7 +37,7 @@ print(f"Fetched all rules in {end_time - start_time:.2f} seconds.")
 
 rule_params = {"third-party": True}
 
-http_requests_file = f"{EXPERIMENT_DIR}/results/http_requests_url.txt"
+http_requests_file = f"{EXPERIMENT_DIR}/results/http_requests_url_2.txt"
 
 # Open the file and read the URLs
 with open(http_requests_file, "r") as file:
@@ -59,7 +62,7 @@ print(
 )
 
 # For each URL, write the results to a CSV file
-csv_file = f"{EXPERIMENT_DIR}/results/http_requests_url_ordered.csv"
+csv_file = f"{EXPERIMENT_DIR}/results/http_requests_url_2.csv"
 print(f"Writing results to {csv_file}...")
 with open(csv_file, "w", newline="") as file:
     writer = csv.writer(file)

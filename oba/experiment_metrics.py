@@ -9,6 +9,7 @@ import pandas as pd
 import sqlite3
 from typing import List, Dict, Tuple
 import matplotlib.pyplot as plt
+from oba.enums import IAB_CATEGORIES
 
 DATA_FROM_VOLUME = True
 DATA_CONTROL_RUNS = False
@@ -38,10 +39,10 @@ class ExperimentMetrics:
         self.clean_run_browsers = self.experiment_config["browser_ids"]["clear"]
         self.conn = sqlite3.connect(self.data_path)
 
-    def write_results_file_with_data(self, data, file_name):
+    def write_results_file_with_data(self, data, file_name, index=False):
         """Write data from a Pandas DataFrame to a file in the specified path."""
         file_path = f"{self.experiment_dir}/results/{file_name}"
-        data.to_csv(file_path, index=False)
+        data.to_csv(file_path, index=index)
 
     def _read_experiment_config_json(self):
         """Opens and reads the json file with the configuration for the experiment"""
@@ -86,8 +87,6 @@ class ExperimentMetrics:
         query = """
                 SELECT 
                     lpc.category_name as category_name,
-                    COUNT(va.ad_url) as TotalNumAdsURL,
-                    COUNT(DISTINCT va.ad_url) as TotalNumUniqueAdsURL,
                     COUNT(CASE WHEN va.browser_id = :session_1_browser_id THEN va.ad_url ELSE NULL END) as NumAdsURLSession1,
                     COUNT(DISTINCT CASE WHEN va.browser_id = :session_1_browser_id THEN va.ad_url ELSE NULL END) as NumUniqueAdsURLSession1,
                     COUNT(CASE WHEN va.browser_id = :session_2_browser_id THEN va.ad_url ELSE NULL END) as NumAdsURLSession2,
@@ -109,7 +108,6 @@ class ExperimentMetrics:
                 LEFT JOIN landing_page_categories lpc ON lp.landing_page_id = lpc.landing_page_id
                 WHERE va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL
                 GROUP BY lpc.category_name
-                ORDER BY COUNT(DISTINCT va.ad_url) DESC
             """
         cursor.execute(
             query,
@@ -131,8 +129,6 @@ class ExperimentMetrics:
             ads,
             columns=[
                 "Category",
-                "TotalNumAds",
-                "TotalNumUniqueAdsURL",
                 "NumAdsURLSession1",
                 "NumUniqueAdsURLSession1",
                 "NumAdsURLSession2",
@@ -152,7 +148,25 @@ class ExperimentMetrics:
             ],
         )
 
+        # Add the total number of ads and unique ads for each category
+        total_ads = ads_df.filter(like="NumAdsURL").sum(axis=1)
+        total_unique_ads = ads_df.filter(like="NumUniqueAdsURL").sum(axis=1)
+
+        # Insert the total number of ads and unique ads at the beginning of the dataframe
+        ads_df.insert(1, "TotalNumAdsURL", total_ads)
+        ads_df.insert(2, "TotalNumUniqueAdsURL", total_unique_ads)
+
+        # Sort the rows by the total number of unique ads
+        ads_df = ads_df.sort_values(by="TotalNumUniqueAdsURL", ascending=False)
+
         print(ads_df)
+
+        # Add a new column with a boolean indicating if the category is tier 1 or not
+        tier1_categories = []
+        for key, value in IAB_CATEGORIES.items():
+            tier1_categories.append(value[key])
+
+        ads_df.insert(1, "IsTier1", ads_df["Category"].isin(tier1_categories))
 
         return ads_df
 
@@ -225,44 +239,31 @@ class ExperimentMetrics:
         categories = cursor.fetchall()
         categories = [category[0] for category in categories]
 
-        # print(categories)
-
         # Initialize the sessions list and the set of seen browser_ids
-        seen_browser_ids = set()
-        sessions = []
         site_visits_count = {
             site_url: 0 for _, site_url, _ in numvisits_by_browser_id_and_url
         }
 
+        # Create a dictionary with the number of ads and unique ads for each session for each category
+        categories_ads = {}
+        for category in categories:
+            categories_ads[category] = {}
+            for i in range(1, 9):
+                categories_ads[category][f"NumAdsURL_Session{i}"] = 0
+                categories_ads[category][f"NumUniqueAdsURL_Session{i}"] = 0
+
+        session_number = 0  # Initialize the session number
+        seen_browser_ids = set()
         for browser_id, site_url, num_visits in numvisits_by_browser_id_and_url:
-
             if browser_id not in seen_browser_ids:
-                # print("\n" * 2)
-                print((browser_id))
-                # Create a new session dictionary
-                session = {
-                    "browser_id": len(sessions) + 1,
-                }
-                # Initialize the number of ads url for all categories to the session
-                for category in categories:
-                    key_num_ads_url = f"NumAdsURL_{category}"
-                    key_num_unique_ads_url = f"NumUniqueAdsURL_{category}"
-                    session[key_num_ads_url] = 0
-                    session[key_num_unique_ads_url] = 0
+                # Move to the next session
+                session_number += 1
 
-                # Append the session to the sessions list and add the browser_id to the seen_browser_ids set
-                sessions.append(session)
+                # Add the session to seen sessions
                 seen_browser_ids.add(browser_id)
-            else:
-                session = sessions[-1]
 
-            # print("Session: ", session)
-            # print("Site URL: ", site_url)
-            # print("Visits to check: ", num_visits)
-            # print("Site visits: ", site_visits_count)
-
-            # Fetch the ads from num_visits visits to the current site_url, starting from the first visit after the already taken visit
             for category in categories:
+                # Fetch the ads from num_visits visits to the current site_url, starting from the first visit after the already taken visit
                 query_result = fetch_ads_by_limits_and_site_url_and_category(
                     cursor,
                     site_url,
@@ -271,30 +272,45 @@ class ExperimentMetrics:
                     category,
                 )
 
-                # If no ads were found, continue to the next session
-                if not query_result or not query_result[0][0]:
-                    continue
+                # Add the number of ads and unique ads to the corresponding category
+                numAdsURL, numUniqueAdsURL = query_result[0]
 
-                # Add the new ads to the actual session
-                new_NumAdsURL, new_NumUniqueAdsURL = query_result[0]
+                key_num_ads_url = f"NumAdsURL_Session{session_number}"
+                key_num_unique_ads_url = f"NumUniqueAdsURL_Session{session_number}"
 
-                key_num_ads_url = f"NumAdsURL_{category}"
-                key_num_unique_ads_url = f"NumUniqueAdsURL_{category}"
-
-                session[key_num_ads_url] += new_NumAdsURL
-                session[key_num_unique_ads_url] += new_NumUniqueAdsURL
+                categories_ads[category][key_num_ads_url] += numAdsURL
+                categories_ads[category][key_num_unique_ads_url] += numUniqueAdsURL
 
             # Update the number of visits taken from the site_url
             site_visits_count[site_url] += num_visits
 
         cursor.close()
-        df = pd.DataFrame(sessions)
 
-        # Add a column with the TotalNumAdsURL and TotalNumUniqueAdsURL for each session
-        df["NumAdsURL_Total"] = df.filter(like="NumAdsURL").sum(axis=1)
-        df["NumUniqueAdsURL_Total"] = df.filter(like="NumUniqueAdsURL").sum(axis=1)
+        # With the dictionary of categories_ads, we can now create a DataFrame where each row is a category and each column is the number of ads and unique ads for each session
+        df = pd.DataFrame(categories_ads).T
+
+        # Name the index
+        df.index.name = "Category"
+
+        # Add the total number of ads and unique ads for each category
+        total_ads = df.filter(like="NumAdsURL").sum(axis=1)
+        total_unique_ads = df.filter(like="NumUniqueAdsURL").sum(axis=1)
+
+        # Insert the total number of ads and unique ads at the beginning of the dataframe
+        df.insert(0, "TotalNumAdsURL", total_ads)
+        df.insert(1, "TotalNumUniqueAdsURL", total_unique_ads)
+
+        # Sort the rows by the total number of unique ads
+        df = df.sort_values(by="TotalNumUniqueAdsURL", ascending=False)
 
         print(df)
+
+        # Add a new column with a boolean indicating if the category is tier 1 or not
+        tier1_categories = []
+        for key, value in IAB_CATEGORIES.items():
+            tier1_categories.append(value[key])
+
+        df.insert(0, "IsTier1", df.index.isin(tier1_categories))
 
         return df
 

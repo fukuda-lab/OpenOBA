@@ -6,13 +6,15 @@ import sqlite3
 # sqlite_file = f"{experiment_data_dir}/crawl-data-copy.sqlite"
 
 # CONTROL RUNS DATA
-experiment_name = "control_run_do_nothing"
-experiment_data_dir = f"/Volumes/FOBAM_data/control_runs/{experiment_name}/"
+experiment_name = "control_run_reject"
+experiment_data_dir = f"/Volumes/LaCie/OpenOBA/control_runs/{experiment_name}/"
 sqlite_file = f"{experiment_data_dir}/crawl-data.sqlite"
 
 
 # javascript_script
-javascript_script_url_file = f"{experiment_data_dir}/results/javascript_script_url.txt"
+javascript_script_url_file = (
+    f"{experiment_data_dir}/results/javascript_script_url_2.txt"
+)
 with sqlite3.connect(sqlite_file) as conn:
     cursor = conn.cursor()
     cursor.execute("SELECT script_url FROM javascript")
@@ -21,7 +23,7 @@ with sqlite3.connect(sqlite_file) as conn:
         file.writelines(f"'{row[0]}',\n" for row in results)
 
 # http_request
-http_requests_url_file = f"{experiment_data_dir}/results/http_requests_url.txt"
+http_requests_url_file = f"{experiment_data_dir}/results/http_requests_url_2.txt"
 with sqlite3.connect(sqlite_file) as conn2:
     cursor2 = conn2.cursor()
     cursor2.execute("SELECT url FROM http_requests")
