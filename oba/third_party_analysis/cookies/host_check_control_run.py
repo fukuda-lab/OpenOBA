@@ -37,6 +37,32 @@ def print_timestamped_message(message):
     print(f"[{now}] {message}")
 
 
+def get_domains_data(group):
+    # Step 1: Further filter to get only 3rd party tracking entries
+    tracking_df = group[
+        group["third_party"]
+        & (group["easyprivacy"] | group["easylist"] | group["adserverlist"])
+    ]
+
+    # Step 2: Collect sets of domains for each session
+    domain_sets = tracking_df.groupby("browser_id")["host_domain"].apply(set)
+
+    # Step 3: Find the intersection of all domain sets
+    common_domains = (
+        set.intersection(*domain_sets.values) if len(domain_sets) > 0 else set()
+    )
+
+    print(common_domains)
+
+    # Step 3: Count occurrences of each domain
+    domain_counts = tracking_df["host_domain"].value_counts()
+
+    # Step 4: Get the top 10 domains
+    top_10_domains = domain_counts.head(10)
+
+    return top_10_domains, common_domains
+
+
 def fetch_entries_by_limits_and_site_url(
     cursor,
     site_url: str,
@@ -251,20 +277,18 @@ results_table = pd.DataFrame(
             .shape[0]
         ),
         "NumUniqueCookiesDomains": grouped_df.apply(
-            lambda x: x.drop_duplicates(
-                subset=["host_domain", "host", "name", "value"]
-            ).shape[0]
+            lambda x: x.drop_duplicates(subset=["host_domain"]).shape[0]
         ),
         "NumUniqueCookiesDomains_3rdParty": grouped_df.apply(
             lambda x: x[x["third_party"]]
-            .drop_duplicates(subset=["host_domain", "host", "name", "value"])
+            .drop_duplicates(subset=["host_domain"])
             .shape[0]
         ),
         "NumUniqueCookiesDomains_3rdParty_Tracking": grouped_df.apply(
             lambda x: x[
                 x["easyprivacy"] | x["easylist"] | x["adserverlist"] & x["third_party"]
             ]
-            .drop_duplicates(subset=["host_domain", "host", "name", "value"])
+            .drop_duplicates(subset=["host_domain"])
             .shape[0]
         ),
     }
@@ -305,10 +329,10 @@ summary_data = {
     .drop_duplicates(subset=["host", "name", "value"])
     .shape[0],
     "NumUniqueCookiesDomains": first_6_rows.drop_duplicates(
-        subset=["host_domain", "host", "name", "value"]
+        subset=["host_domain"]
     ).shape[0],
     "NumUniqueCookiesDomains_3rdParty": first_6_rows[first_6_rows["third_party"]]
-    .drop_duplicates(subset=["host_domain", "host", "name", "value"])
+    .drop_duplicates(subset=["host_domain"])
     .shape[0],
     "NumUniqueCookiesDomains_3rdParty_Tracking": first_6_rows[
         first_6_rows["third_party"]
@@ -318,7 +342,7 @@ summary_data = {
             | first_6_rows["adserverlist"]
         )
     ]
-    .drop_duplicates(subset=["host_domain", "host", "name", "value"])
+    .drop_duplicates(subset=["host_domain"])
     .shape[0],
 }
 # Convert to DataFrame for a single row result
@@ -327,13 +351,37 @@ summary_row = pd.DataFrame([summary_data], index=["Combined First 6 Sessions"])
 # Append this summary row to the results_table
 results_table = pd.concat([results_table, summary_row])
 
-print(results_table)
+# OBTAIN THE TOP 10 DOMAINS AND THE OVERLAP OF 3RD PARTY TRACKING DOMAINS IN THE FIRST 6 SESSIONS
+top_10_domains, common_domains = get_domains_data(
+    df_cookies[df_cookies["browser_id"].isin(oba_browser_ids_order[:6])]
+)
+# Create a row with the same shape as the results_table but with - for all values except the NumUniqueCookiesDomains_3rdParty_Tracking column which will contain the number of common domains
+common_domains_row = pd.DataFrame(
+    [
+        {
+            "browser_id": "-",
+            "NumUniqueCookiesDomains_3rdParty_Tracking": len(common_domains),
+        }
+    ],
+    index=["Common 3rd Party Tracking Domains in First 6 Sessions"],
+)
 
+# Append this row to the results_table
+results_table = pd.concat([results_table, common_domains_row])
 results_table_markdown = results_table.to_markdown()
+
+print(results_table)
 
 # # To save to a Markdown file
 with open(markdown_file, "w") as f:
     f.write("## Cookies Metrics\n")
     f.write(results_table_markdown)
+    f.write("\n\n")
+    f.write("## Overlap of 3rd Party Tracking Domains in First 6 Sessions\n")
+    f.write(", \n".join(list(common_domains)))
+    f.write("\n\n")
+    f.write("## Top 10 3rd Party Tracking Domains in First 6 Sessions\n")
+    f.write(top_10_domains.to_markdown())
+    f.write("\n\n")
 
 print(f"FINISHED FOR {experiment_name}!")

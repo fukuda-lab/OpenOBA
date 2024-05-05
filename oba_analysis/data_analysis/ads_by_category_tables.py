@@ -9,6 +9,7 @@ ads_by_category_accept = metrics_accept.get_ads_by_category_table_all_browsers()
 metrics_accept.write_results_file_with_data(
     ads_by_category_accept, "ads_by_category.csv"
 )
+metrics_accept.get_top_10_domains_ads()
 metrics_accept.close()
 
 metrics_reject = ExperimentMetrics(
@@ -18,6 +19,7 @@ ads_by_category_reject = metrics_reject.get_ads_by_category_table_all_browsers()
 metrics_reject.write_results_file_with_data(
     ads_by_category_reject, "ads_by_category.csv"
 )
+metrics_reject.get_top_10_domains_ads()
 metrics_reject.close()
 
 metrics_do_nothing = ExperimentMetrics(
@@ -27,6 +29,7 @@ ads_by_category_do_nothing = metrics_do_nothing.get_ads_by_category_table_all_br
 metrics_do_nothing.write_results_file_with_data(
     ads_by_category_do_nothing, "ads_by_category.csv"
 )
+metrics_do_nothing.get_top_10_domains_ads()
 metrics_do_nothing.close()
 
 
@@ -43,6 +46,9 @@ ads_by_category_accept = metrics_accept_control.get_ads_by_category_grouped_by_a
 metrics_accept_control.write_results_file_with_data(
     ads_by_category_accept, "ads_by_category.csv", index=True
 )
+metrics_accept_control.get_top_10_domains_of_ads_grouped_by_artificial_sessions_and_site_url(
+    numvisits_by_browser_id_and_url
+)
 metrics_accept_control.close()
 
 metrics_reject_control = ExperimentMetrics("control_run_reject", control_runs=True)
@@ -55,6 +61,9 @@ ads_by_category_reject = metrics_reject_control.get_ads_by_category_grouped_by_a
 )
 metrics_reject_control.write_results_file_with_data(
     ads_by_category_reject, "ads_by_category.csv", index=True
+)
+metrics_reject_control.get_top_10_domains_of_ads_grouped_by_artificial_sessions_and_site_url(
+    numvisits_by_browser_id_and_url
 )
 metrics_reject_control.close()
 
@@ -70,5 +79,8 @@ ads_by_category_do_nothing = metrics_do_nothing_control.get_ads_by_category_grou
 )
 metrics_do_nothing_control.write_results_file_with_data(
     ads_by_category_do_nothing, "ads_by_category.csv", index=True
+)
+metrics_do_nothing_control.get_top_10_domains_of_ads_grouped_by_artificial_sessions_and_site_url(
+    numvisits_by_browser_id_and_url
 )
 metrics_do_nothing_control.close()

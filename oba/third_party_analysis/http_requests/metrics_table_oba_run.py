@@ -73,6 +73,30 @@ def aggregate_data(group, summary=False):
     return pd.Series(data)
 
 
+def get_domains_data(group):
+    # Step 1: Further filter to get only 3rd party tracking entries
+    tracking_df = group[
+        group["third_party"]
+        & (group["easyprivacy"] | group["easylist"] | group["adserverlist"])
+    ]
+
+    # Step 2: Collect sets of domains for each session
+    domain_sets = tracking_df.groupby("browser_id")["request_url_domain"].apply(set)
+
+    # Step 3: Find the intersection of all domain sets
+    common_domains = (
+        set.intersection(*domain_sets.values) if len(domain_sets) > 0 else set()
+    )
+
+    # Step 3: Count occurrences of each domain
+    domain_counts = tracking_df["request_url_domain"].value_counts()
+
+    # Step 4: Get the top 10 domains
+    top_10_domains = domain_counts.head(10)
+
+    return top_10_domains, len(common_domains)
+
+
 def aggregate_data_control(group, summary=False):
     data = {
         "Control_NumUniqueURL": group[group["control_visit"]]["url"].nunique(),
@@ -130,9 +154,21 @@ if len(df_http_requests_browser_id) == len(csv_df):
     )
     # Convert to DataFrame for a single row result
     summary_row = pd.DataFrame([summary_data], index=["Combined First 6 Sessions"])
-
     # Append this summary row to the results_table
     results_table = pd.concat([aggregated_data, summary_row])
+
+    # OBTAIN THE TOP 10 DOMAINS AND THE OVERLAP OF 3RD PARTY TRACKING DOMAINS IN THE FIRST 6 SESSIONS
+    top_10_domains, common_domains = get_domains_data(
+        csv_df[csv_df["browser_id"].isin(browser_ids_order[:6])]
+    )
+    # Create a row with the same shape as the results_table but with - for all values except the NumUniqueDomain_3rdParty_Tracking column which will contain the number of common domains
+    common_domains_row = pd.DataFrame(
+        [{"browser_id": "-", "NumUniqueDomain_3rdParty_Tracking": common_domains}],
+        index=["Common 3rd Party Tracking Domains in First 6 Sessions"],
+    )
+
+    # Append this row to the results_table
+    results_table = pd.concat([results_table, common_domains_row])
     results_table_markdown = results_table.to_markdown()
 
     # Now repeat everything but considering an additional 'control_visit' filter = True for the 4 previous column
@@ -165,15 +201,84 @@ if len(df_http_requests_browser_id) == len(csv_df):
 
     # Append this summary row to the results_table
     results_table_control = pd.concat([aggregated_data_control, summary_row_control])
+
+    # OBTAIN THE OVERLAP OF 3RD PARTY TRACKING DOMAINS IN THE FIRST 6 SESSIONS
+    top_10_domains_control, common_domains_control = get_domains_data(
+        csv_df[
+            csv_df["browser_id"].isin(browser_ids_order[:6]) & csv_df["control_visit"]
+        ]
+    )
+    # Create a row with the same shape as the results_table but with - for all values except the Control_NumUniqueDomain_3rdParty_Tracking column which will contain the number of common domains
+    common_domains_control_row = pd.DataFrame(
+        [
+            {
+                "browser_id": "-",
+                "Control_NumUniqueDomain_3rdParty_Tracking": common_domains_control,
+            }
+        ],
+        index=["Common 3rd Party Tracking Domains in First 6 Sessions"],
+    )
+
+    # Append this row to the results_table_control
+    results_table_control = pd.concat(
+        [results_table_control, common_domains_control_row]
+    )
+
     control_results_table_markdown = results_table_control.to_markdown()
+
+    # Now, in a csv file, list all the unique tracking, third-party domains for each browser_id along with the number of requests to each domain
+    # This will be useful for the next step of the analysis
+    csv_unique_tracking_domains = (
+        f"{DATA_DIR}/{experiment_name}/results/unique_tracking_3rd_party_domains.csv"
+    )
+    csv_unique_tracking_domains_control = f"{DATA_DIR}/{experiment_name}/results/unique_tracking_3rd_party_control_domains.csv"
+
+    # Get the unique tracking domains for each browser_id
+    unique_tracking_domains = (
+        csv_df[
+            csv_df["third_party"]
+            & (csv_df["easyprivacy"] | csv_df["easylist"] | csv_df["adserverlist"])
+        ]
+        .groupby("browser_id")["request_url_domain"]
+        .value_counts()
+        .unstack(fill_value=0)
+    )
+
+    # Get the unique tracking domains for each browser_id with control_visit = True
+    unique_tracking_domains_control = (
+        csv_df[
+            csv_df["control_visit"]
+            & csv_df["third_party"]
+            & (csv_df["easyprivacy"] | csv_df["easylist"] | csv_df["adserverlist"])
+        ]
+        .groupby("browser_id")["request_url_domain"]
+        .value_counts()
+        .unstack(fill_value=0)
+    )
+
+    # Save to CSV
+    unique_tracking_domains.transpose().to_csv(csv_unique_tracking_domains)
+    unique_tracking_domains_control.transpose().to_csv(
+        csv_unique_tracking_domains_control
+    )
+
+    print(f"Unique tracking domains saved to {csv_unique_tracking_domains}")
 
     # # To save to a Markdown file
     with open(markdown_file, "w") as f:
         f.write("## HTTP Requests Metrics\n")
         f.write(results_table_markdown)
         f.write("\n\n")
+        f.write("## Top 10 3rd Party Tracking Domains in First 6 Sessions\n")
+        f.write(top_10_domains.to_markdown())
+        f.write("\n\n")
         f.write("## Control Visits Only HTTP Requests Metrics\n")
         f.write(control_results_table_markdown)
+        f.write("\n\n")
+        f.write(
+            "## Top 10 3rd Party Tracking Domains in First 6 Sessions (Control Visits Only)\n"
+        )
+        f.write(top_10_domains_control.to_markdown())
 
     print(f"FINISHED FOR {experiment_name}!")
 
