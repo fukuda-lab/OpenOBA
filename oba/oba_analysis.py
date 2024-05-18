@@ -141,8 +141,8 @@ class OBAQuantifier:
         query = """
                 SELECT 
                     va.browser_id,
-                    COUNT(CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name != "Uncategorized" AND lpc.category_name != :category_name THEN va.ad_url ELSE NULL END) AS NumAdsURL,
-                    COUNT(CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name = :category_name THEN va.ad_url ELSE NULL END) AS NumAdsURLCategory,
+                    COUNT(DISTINCT CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name != "Uncategorized" AND lpc.category_name != :category_name THEN va.ad_id ELSE NULL END) AS NumAdsURL,
+                    COUNT(DISTINCT CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name = :category_name THEN va.ad_id ELSE NULL END) AS NumAdsURLCategory,
                     COUNT(DISTINCT CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name != "Uncategorized" AND lpc.category_name != :category_name THEN va.ad_url ELSE NULL END) AS NumUniqueAdsURL,
                     COUNT(DISTINCT CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name = :category_name THEN va.ad_url ELSE NULL END) AS NumUniqueAdsURLCategory
                 FROM visit_advertisements va
@@ -175,6 +175,8 @@ class OBAQuantifier:
                 if row["browser_id"] == browser_id:
                     sorted_result.append(row)
                     break
+            if len(sorted_result) == 6:
+                break
 
         cursor.close()
         return sorted_result
@@ -199,8 +201,8 @@ class OBAQuantifier:
                 WITH VisitAdCounts AS (
                     SELECT
                         sv.site_rank,
-                        COUNT(CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name != "Uncategorized" AND lpc.category_name != :category_name THEN va.ad_url ELSE NULL END) AS NumAdsURL,
-                        COUNT(CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name = :category_name THEN va.ad_url ELSE NULL END) AS NumAdsURLCategory,
+                        COUNT(DISTINCT CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name != "Uncategorized" AND lpc.category_name != :category_name THEN va.ad_id ELSE NULL END) AS NumAdsURL,
+                        COUNT(DISTINCT CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name = :category_name THEN va.ad_id ELSE NULL END) AS NumAdsURLCategory,
                         COUNT(DISTINCT CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name != "Uncategorized" AND lpc.category_name != :category_name THEN va.ad_url ELSE NULL END) AS NumUniqueAdsURL,
                         COUNT(DISTINCT CASE WHEN va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND lpc.category_name = :category_name THEN va.ad_url ELSE NULL END) AS NumUniqueAdsURLCategory
 					FROM site_visits sv 
@@ -259,6 +261,9 @@ class OBAQuantifier:
                 seen_browser_ids.add(browser_id)
             else:
                 session = sessions[-1]
+
+            if session["browser_id"] == 7:
+                break
 
             # print("Session: ", session)
             # print("Site URL: ", site_url)

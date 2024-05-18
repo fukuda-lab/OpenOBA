@@ -343,6 +343,140 @@ class CrawlDataQueries:
     # SelectJavascriptsQuery = "SELECT (id, window_id, tab_id, frame_id, script_url, func_name, script_loc_eval, document_url, top_level_url, call_stack, symbol, operation, value, arguments, time_stamp) FROM javascript WHERE browser_id=? AND visit_id=?"
 
 
+NOTHING_GROUP = [
+    "amklegal.co.uk",
+    "autoexpress.co.uk",
+    "besthearingaids.co.uk",
+    "bestsearches.net",
+    "channelweb.co.uk",
+    "cio.com",
+    "cliniccompare.com",
+    "clubmed.co.uk",
+    "cnn.com",
+    "combatsiege.com",
+    "csoonline.com",
+    "curaprox.co.uk",
+    "decanter.com",
+    "desertorder.com",
+    "digitalcameraworld.com",
+    "drivingelectric.com",
+    "ecoukhomes.com",
+    "etoro.com",
+    "exoticca.com",
+    "flashtalking.com",
+    "flexispot.co.uk",
+    "forgeofempires.com",
+    "fullnutritionsecrets.com",
+    "getsmartinsights.com",
+    "goodto.com",
+    "haier-europe.com",
+    "homeinsulationvoucher.co.uk",
+    "interactivebrokers.co.uk",
+    "investinyourfamily.co.uk",
+    "kingswoodwills.co.uk",
+    "lasik-eyes.co.uk",
+    "legacywillsquote.com",
+    "marieclaire.co.uk",
+    "moneysavinghelp.co.uk",
+    "mygenes.co.uk",
+    "navy.quest",
+    "newdogdiscovery.com",
+    "newskindiscovery.com",
+    "nostalgicreads.com",
+    "panzer.quest",
+    "planetcapture.io",
+    "provacan.co.uk",
+    "reassured.co.uk",
+    "responsiblelife.co.uk",
+    "sotrends.com",
+    "standard.co.uk",
+    "tapashkumar.com",
+    "theweathernetwork.com",
+    "theweek.com",
+    "tips-and-tricks.co",
+    "tradetracker.net",
+    "vodafone.co.uk",
+    "volvocars.com",
+    "wallstreetviral.com",
+    "whogivesacrap.org",
+    "willfully.co.uk",
+    "zarbi.com",
+]
+
+A_GROUP = [
+    "creativecdn.com",
+    "googleadservices.com",
+    "googlesyndication.com",
+    "doubleclick.net",
+    "integralads.com",
+    "onetag.com",
+    "rtbhouse.com",
+    "travelaudience.com",
+    "clkmg.com",
+]
+
+M_GROUP = [
+    "a-great-big-data-intl.fyi",  # anyrun
+    "bestgadgetdiscounts.com",  # scamadviser trustscore 1
+    "dailyactunews.com",  # scamdoc trustscore 1
+    "hike-footwear.com",  # scamadviser trustscore 1
+    "infoaday.com",  # gridinsoft trustscore 11
+    "pzzqvpjlfkbmb.com",  # anyrun
+    "theweeklyhub.com",  # scamdoc trustscore 1
+    "llsdzktnxwnnr.com",  # anyrun
+    "zbrjtstrclnm.com",  # anyrun
+]
+
+M_MINUS_GROUP = [
+    "bsmsrch.com",  # scamadviser trustcore 52
+    "flarequick.com",  # Scam-detector trustscore 58.9
+    "ilius.net",  # ipqualityscore 65 suspicious
+    "mrwisebuyer.com",  # webparanoid
+    "ps.sbs",  # trustpilot reviews
+    "savemoneymarket.co.uk",  # trustpilot reviews
+    "solar-panels24-uk.com",  # scamadviser trustscore 46
+    "stufftopics.com",  # webparanoid
+    "suholtd.com",  # trustpilot reviews
+    "thesearchgod.com",  # scam-detector trustscore 40.5
+    "vyager.com",  # scam-detector trustscore 75.8
+    "wwiqtest.com",  # trustpilot reviews
+    "zajoltd.com",  # trustpilot reviews
+]
+
+U_GROUP = [
+    "anlim.de",
+    "beleepstooked.com",
+    "bibinboxputhwagon.com",
+    "carinsurance3m-uk.space",
+    "carinsurance4d-uk.space",
+    "claimstrk.com",
+    "fertility-clinics.world",
+    "gain-an-intl-best-online-mba-courses-usa-ace.fyi",
+    "gain-intl-work-from-home.zone",
+    "globalvisitclub.com",
+    "ivf-treatments.world",
+    "latellscoaddents.com",
+    "lds.xyz",
+    "linka.me",
+    "mangstomsadding.com",
+    "mobilestairliftuk.space",
+    "mysearchesnow.com",
+    "nsoftrack.com",
+    "perpetual-track.com",
+    "pix-trk.com",
+    "quelancepitylus.com",
+    "roinattrack.com",
+    "searchlinksnow.com",
+    "shefence-citional.com",
+    "snzgdl.com",
+    "stairlift24-uk.space",
+    "strateg.is",
+    "tclfplxhhh.com",
+    "top7.today",
+    "vsgzddj.com",
+]
+
+
 IAB_CATEGORIES = {
     "IAB1": {
         "IAB1": "Arts & Entertainment",

@@ -4,7 +4,7 @@ import pandas as pd
 from oba.oba_analysis import OBAQuantifier
 from oba.experiment_metrics import ExperimentMetrics
 
-RESULTS_DIR = "/Volumes/LaCie/OpenOBA/RESULTS"
+RESULTS_DIR = "/Volumes/LaCie/OpenOBA/RESULTS/"
 
 
 def get_metrics_tables(experiment_name: str, cookie_banner_option: int, category: str):
@@ -94,12 +94,12 @@ summary_df_do_nothing = get_metrics_tables(
 )
 
 # Concatenate the three dataframes
-# summary_df = pd.concat([summary_df_accept, summary_df_reject, summary_df_do_nothing])
+summary_df = pd.concat([summary_df_accept, summary_df_reject, summary_df_do_nothing])
 
-# print(summary_df)
+print(summary_df)
 
 # Write the summary_df to a markdown file
-# summary_df.to_markdown(RESULTS_DIR + "summary_df.md")
+summary_df.to_markdown(RESULTS_DIR + "summary_df_new.md")
 
 # # Experiment Accept
 # # OBAQuantifier

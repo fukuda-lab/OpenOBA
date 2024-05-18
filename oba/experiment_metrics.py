@@ -10,7 +10,14 @@ import tldextract
 import sqlite3
 from typing import List, Dict, Tuple
 import matplotlib.pyplot as plt
-from oba.enums import IAB_CATEGORIES
+from oba.enums import (
+    IAB_CATEGORIES,
+    NOTHING_GROUP,
+    A_GROUP,
+    M_GROUP,
+    M_MINUS_GROUP,
+    U_GROUP,
+)
 
 DATA_FROM_VOLUME = True
 DATA_CONTROL_RUNS = False
@@ -224,10 +231,48 @@ class ExperimentMetrics:
         print(domain_summary["Total_AdURLs"].sum())
         print(domain_summary["Unique_AdURLs"].sum())
 
+        # Print all the domains as a list of strings
+        print(domain_summary["Domain"].to_list())
+
         # Write the results to a markdown table file
         domain_summary.to_markdown(
             f"{self.experiment_dir}/results/top_domains_ads.md", index=False
         )
+
+        # Create a new dataframe whose rows are the different groups of domains and the columns are the number of ads and unique ads for each group
+        domain_groups = {
+            "Nothing": NOTHING_GROUP,
+            "A": A_GROUP,
+            "M": M_GROUP,
+            "M-": M_MINUS_GROUP,
+            "U": U_GROUP,
+        }
+
+        # Create a new dataframe with the domain groups
+        df_domain_groups = pd.DataFrame(columns=["Group", "TotalAds", "TotalUniqueAds"])
+
+        for group, domains in domain_groups.items():
+            df_group = domain_summary[domain_summary["Domain"].isin(domains)]
+            total_ads = df_group["Total_AdURLs"].sum()
+            total_unique_ads = df_group["Unique_AdURLs"].sum()
+            row = pd.DataFrame(
+                [
+                    {
+                        "Group": group,
+                        "TotalAds": total_ads,
+                        "TotalUniqueAds": total_unique_ads,
+                    }
+                ]
+            )
+            df_domain_groups = pd.concat([df_domain_groups, row])
+
+        # Write the results to a markdown table file
+        df_domain_groups.to_markdown(
+            f"{self.experiment_dir}/results/domain_groups_ads.md", index=False
+        )
+
+        print(df_domain_groups)
+
         return
 
     def get_ads_by_category_grouped_by_artificial_sessions_and_site_url(
@@ -490,9 +535,44 @@ class ExperimentMetrics:
         # Sort by 'Unique_AdURLs' in descending order
         domain_summary = domain_summary.sort_values(by="Unique_AdURLs", ascending=False)
 
+        # Print all the domains as a list of strings
+        print(domain_summary["Domain"].to_list())
+
         # Write the results to a markdown table file
         domain_summary.to_markdown(
             f"{self.experiment_dir}/results/top_domains_ads.md", index=False
+        )
+
+        # Create a new dataframe whose rows are the different groups of domains and the columns are the number of ads and unique ads for each group
+        domain_groups = {
+            "Nothing": NOTHING_GROUP,
+            "A": A_GROUP,
+            "M": M_GROUP,
+            "M-": M_MINUS_GROUP,
+            "U": U_GROUP,
+        }
+
+        # Create a new dataframe with the domain groups
+        df_domain_groups = pd.DataFrame(columns=["Group", "TotalAds", "TotalUniqueAds"])
+
+        for group, domains in domain_groups.items():
+            df_group = domain_summary[domain_summary["Domain"].isin(domains)]
+            total_ads = df_group["Total_AdURLs"].sum()
+            total_unique_ads = df_group["Unique_AdURLs"].sum()
+            row = pd.DataFrame(
+                [
+                    {
+                        "Group": group,
+                        "TotalAds": total_ads,
+                        "TotalUniqueAds": total_unique_ads,
+                    }
+                ]
+            )
+            df_domain_groups = pd.concat([df_domain_groups, row])
+
+        # Write the results to a markdown table file
+        df_domain_groups.to_markdown(
+            f"{self.experiment_dir}/results/domain_groups_ads.md", index=False
         )
 
         return domain_summary
