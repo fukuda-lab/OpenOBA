@@ -42,7 +42,7 @@ cd openOBA
 
 ### 2. Install OpenWPM
 
-We will use the same script of OpenWPM, the only change is that we want to use specifically Firefox version `108.0.2`
+We will use the same script of OpenWPM, the only change is that we want to use specifically Firefox version `108.0.2`. If it doesn't work, try deleting the `--force` tag in `./install.sh` file
 
 ```bash
 ./install.sh
