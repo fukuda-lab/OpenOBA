@@ -62,10 +62,16 @@ In case there is some dependency problem, see if there are any mismatches betwee
 pip install -r requirements.txt
 ```
 
-### 4. Run demo.py
+### 4. Run demos
 
-If everything is working correctly, we should be able to run `[demo.py](http://demo.py)` file (with the openwpm env activated)
+If everything is working correctly, we should be able to run the demo files from the `[demos](https://github.com/fukuda-lab/OpenOBA/tree/control-pages-control-run/demos)` folder (with the openwpm env activated).
+In summary, these demo files show a  very basic use of the main classes of the framework `OBAMeasurementExperiment` , `DataProcesser`, and `ExperimentMetrics` (merged with a previously called `OBAAnalysis` class).
 
+The demos would be run chronologically as 1, 2, 3 and 4.
+
+See their code to follow/change the directories for data, results, and plots.
+
+#### 4.a
 ```bash
 python -m demos.1_oba_crawler_demo
 ```
@@ -77,6 +83,55 @@ python -m demos.1_oba_crawler_demo
     ```bash
     OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES python -m demos.1_oba_crawler_demo
     ```
+
+#### 4.b
+```bash
+python -m demos.2_oba_crawler_load_experiment_demo
+```
+
+- TO RUN IN MACOS:
+    
+    `OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES` before any python command:
+    
+    ```bash
+    OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES python -m demos.2_oba_crawler_load_experiment_demo
+    ```
+#### 4.c
+```bash
+python -m demos.3_data_processer_demo
+```
+
+- TO RUN IN MACOS:
+    
+    `OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES` before any python command:
+    
+    ```bash
+    OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES python -m demos.3_data_processer_demo
+    ```
+#### 4.d
+```bash
+python -m demos.4_ads_analysis_demo
+```
+
+- TO RUN IN MACOS:
+    
+    `OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES` before any python command:
+    
+    ```bash
+    OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES python -m demos.4_ads_analysis_demo
+    ```
+
+### Paper Experiment
+For the input files used in our paper, see the `[oba/input_run_files](https://github.com/fukuda-lab/OpenOBA/tree/control-pages-control-run/oba/input_run_files/style_and_fashion_experiment)` folder.
+
+This shows how to make all the three OBA Run instances performed in the experiment, following the same 0, 1, 2, 3 and 4 steps. Read the paper to understand better the idea of separating in `instances`.
+
+### Other files
+
+Other scripts can be found within `[oba_analysis/data_analysis](https://github.com/fukuda-lab/OpenOBA/tree/control-pages-control-run/oba_analysis/data_analysis)` and `[oba/third_party_analysis](https://github.com/fukuda-lab/OpenOBA/tree/control-pages-control-run/oba/third_party_analysis)` folders, with much more code showing data processing for ads, cookies and http requests in CSVs, plots, and markdowns.
+
+This code can be untidy and hard to understand, because it mixes code referring to the OBA Runs and Random Runs (also called Control Runs throughout the code). It was specific to the experiments performed in the paper, but could help as guidance on how to use the methods in the `ExperimentMetrics` class to do an analysis on OBA, cookies and http requests.
+
 
 
 # Documentation
@@ -95,14 +150,12 @@ This class handles the setup of the environment according to the arguments value
     2.  Filter and set the training pages by category in case they were categorized beforehand.
     3.  Run the actual crawling for the experiment, saving the ad urls found in the control_sites for advertisements, and adding all the necessary data about the visits to the sites for them to be analyzed later. It also handles the saving of the browser profiles to be then loaded when wanting to resume a previously started experiment.
 - **DataProcesser** *(public to the user)*: This is the other entrypoint for the Framework. It should only recieve the experiment_name. With that name it can connect to the sqlite database with all the crawling data (site visits, browser ids, etc), to the {experiment_name}_config.json. It is in charge of resolving the Ad URLs after being extracted during an experiment run
-- **ExperimentMetrics** (public): Used to get several insights about the experiment after having its ads processed
-- **OBAAnalysis** (public): ****Is also in charge of getting insights about the experiment but are more directly related to OBA.
-- Several other scripts in third_party_analysis and oba_analysis that are used to generate tables and analysis for the resources of an experiment (these are more up-to-date in the `control-pages-control-run` branch).
+- **ExperimentMetrics** (public): ****Used to get several insights about the experiment after having its ads processed. Several other scripts in third_party_analysis and oba_analysis that are used to generate tables and analysis for the resources of an experiment.
 
 
 
 ## Experiment run
-*This is a full example of an experiment run using **OpenOBAM***
+*This is an explanation of some of the parameters for an experiment run using **OpenOBA***
 ### Description
 <aside>
 👉 We want to measure the impact of users’ choice of cookie banners on the exposure to OBA they will receive.
@@ -164,7 +217,7 @@ experiment = OBAMeasurementExperiment(**oba_cookie_banner_experiment_with_catego
     Now, since we are using the tranco pages, to set our training pages we need a category, we will pick `Clothing` since we know it has cookie banners (we have to do this every time we want to run an experiment):
     
     ```python
-    experiment.set_training_pages_by_category(category="Clothing")
+    experiment.set_training_pages_by_category(category="Style & Fashion")
     ```
     
     and we can start the crawling
@@ -181,4 +234,4 @@ experiment.start(hours=3, minutes=30, browser_mode="headless")
 This will always first run clean visits over the control pages (in clear browsers), so we gather ads that we know that are not due to OBA, and then the *training + control* process will start.
 
 ### IV. Data Processing
-Now we are ready to use the DataProcesser to get the landing pages for the ads.
+Now we are ready to use the DataProcesser to get the landing pages for the ads as shown in the demo files 3 and 4.

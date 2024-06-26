@@ -8,7 +8,7 @@ RESULTS_DIR = (
     f"/{os.getcwd()}/datadir/test_style_and_fashion_experiment_accept/results/"
 )
 PLOTS_DIR = RESULTS_DIR
-NUMBER_OF_BROWSERS_RUN = 1
+NUMBER_OF_BROWSERS_RUN = 2
 
 
 # # ----- DATA FOR THE EXPERIMENT -----
