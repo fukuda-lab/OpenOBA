@@ -64,7 +64,7 @@ pip install -r requirements.txt
 
 ### 4. Run demos
 
-If everything is working correctly, we should be able to run the demo files from the [demos](https://github.com/fukuda-lab/OpenOBA/tree/control-pages-control-run/demos) folder (with the openwpm env activated).
+If everything is working correctly, we should be able to run the demo files from the [demos](https://github.com/fukuda-lab/OpenOBA/tree/main/demos) folder (with the openwpm env activated).
 In summary, these demo files show a  very basic use of the main classes of the framework `OBAMeasurementExperiment` , `DataProcesser`, and `ExperimentMetrics` (merged with a previously called `OBAAnalysis` class).
 
 The demos would be run chronologically as 1, 2, 3 and 4.
@@ -105,13 +105,13 @@ python -m demos.4_ads_analysis_demo
 ```
 
 ### Paper Experiment
-For the input files used in our paper, see the [oba/input_run_files](https://github.com/fukuda-lab/OpenOBA/tree/control-pages-control-run/oba/input_run_files/style_and_fashion_experiment) folder.
+For the input files used in our paper, see the [oba/input_run_files](https://github.com/fukuda-lab/OpenOBA/tree/main/oba/input_run_files/style_and_fashion_experiment) folder.
 
 This shows how to make all the three OBA Run instances performed in the experiment, following the same 0, 1, 2, 3 and 4 steps. Read the paper to understand better the idea of separating in `instances`.
 
 ### Other files
 
-Other scripts can be found within [oba_analysis/data_analysis](https://github.com/fukuda-lab/OpenOBA/tree/control-pages-control-run/oba_analysis/data_analysis) and [oba/third_party_analysis](https://github.com/fukuda-lab/OpenOBA/tree/control-pages-control-run/oba/third_party_analysis) folders, with much more code showing data processing for ads, cookies and http requests in CSVs, plots, and markdowns.
+Other scripts can be found within [oba_analysis/data_analysis](https://github.com/fukuda-lab/OpenOBA/tree/main/oba_analysis/data_analysis) and [oba/third_party_analysis](https://github.com/fukuda-lab/OpenOBA/tree/main/oba/third_party_analysis) folders, with much more code showing data processing for ads, cookies and http requests in CSVs, plots, and markdowns.
 
 This code can be untidy and hard to understand, because it mixes code referring to the OBA Runs and Random Runs (also called Control Runs throughout the code). It was specific to the experiments performed in the paper, but could help as guidance on how to use the methods in the `ExperimentMetrics` class to do an analysis on OBA, cookies and http requests.
 
