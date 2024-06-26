@@ -91,8 +91,6 @@ python -m demos.2_oba_crawler_load_experiment_demo
 
 - TO RUN IN MACOS:
     
-    `OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES` before any python command:
-    
     ```bash
     OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES python -m demos.2_oba_crawler_load_experiment_demo
     ```
@@ -101,25 +99,10 @@ python -m demos.2_oba_crawler_load_experiment_demo
 python -m demos.3_data_processer_demo
 ```
 
-- TO RUN IN MACOS:
-    
-    `OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES` before any python command:
-    
-    ```bash
-    OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES python -m demos.3_data_processer_demo
-    ```
 #### 4.d
 ```bash
 python -m demos.4_ads_analysis_demo
 ```
-
-- TO RUN IN MACOS:
-    
-    `OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES` before any python command:
-    
-    ```bash
-    OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES python -m demos.4_ads_analysis_demo
-    ```
 
 ### Paper Experiment
 For the input files used in our paper, see the [oba/input_run_files](https://github.com/fukuda-lab/OpenOBA/tree/control-pages-control-run/oba/input_run_files/style_and_fashion_experiment) folder.
