@@ -10,7 +10,7 @@ import csv
 
 # OBA_RUN
 EXPERIMENT_DIR = "/Volumes/LaCie/OpenOBA/oba_runs/"
-experiment_name = "style_and_fashion_experiment_accept"
+experiment_name = "style_and_fashion_experiment_do_nothing"
 oba_db_path = f"{EXPERIMENT_DIR}/{experiment_name}/crawl-data-copy.sqlite"
 experiment_json = f"{EXPERIMENT_DIR}/{experiment_name}/{experiment_name}_config.json"
 markdown_file = (
@@ -44,10 +44,17 @@ def get_domains_data(group):
     # Step 3: Count occurrences of each domain
     domain_counts = tracking_df["host_domain"].value_counts()
 
-    # Step 4: Get the top 10 domains
-    top_10_domains = domain_counts.head(10)
+    # Make a DataFrame with the domain, the count, and the percentage of the total requests
+    domain_counts = pd.DataFrame(domain_counts).reset_index()
+    domain_counts.columns = ["Domain", "Count"]
+    domain_counts["Percentage"] = domain_counts["Count"] / len(tracking_df) * 100
+    # Add a column with the cumulative percentage
+    domain_counts["Cumulative Percentage"] = domain_counts["Percentage"].cumsum()
 
-    return top_10_domains, common_domains
+    # Step 4: Get the top 10 domains
+    # top_10_domains = domain_counts
+
+    return domain_counts, common_domains
 
 
 # First we need to connect the database

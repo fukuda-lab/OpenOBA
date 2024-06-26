@@ -11,6 +11,7 @@ class OBACommandsSequencesFunctions(Enum):
         clean_run: bool = False,
         cookie_banner_action: int = 0,
         _test_quick=True,
+        youtube=False,
     ):
         pass
 
@@ -934,6 +935,35 @@ IAB_CATEGORIES = {
         "IAB9-WS2": "Weapons",
     },
 }
+
+TIER_1_CATEGORIES = [
+    "Arts & Entertainment",
+    "Home & Garden",
+    "Law, Government, & Politics",
+    "News / Weather / Information",
+    "Personal Finance",
+    "Society",
+    "Science",
+    "Pets",
+    "Sports",
+    "Style & Fashion",
+    "Technology & Computing",
+    "Automotive",
+    "Travel",
+    "Real Estate",
+    "Shopping",
+    "Religion & Spirituality",
+    "Uncategorized",
+    "Non-Standard Content",
+    "Illegal Content",
+    "Business",
+    "Careers",
+    "Education",
+    "Family & Parenting",
+    "Health & Fitness",
+    "Food & Drink",
+    "Hobbies & Interests",
+]
 
 WEBSHRINKER_CATEGORIES = {
     "abortion": "Abortion",

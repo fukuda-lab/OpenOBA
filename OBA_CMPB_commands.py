@@ -157,10 +157,12 @@ class ExtractAdsCommand(BaseCommand):
                 else:
                     non_chumbox_ads.append(ad)
 
-            print(f"Found {len(non_chumbox_ads)} non chumbox ads on {self.url}")
-            print(f"Found {len(chumbox_ads)} chumbox ads on {self.url}")
+            print(
+                f"Found {len(non_chumbox_ads)} possible non chumbox ads on {self.url}"
+            )
+            print(f"Found {len(chumbox_ads)} possible chumbox ads on {self.url}")
 
-            ad_number = 1
+            ad_number = 0
             # First scrape all visible non-chumbox ads giving less than 0.5 seconds to load each ad (i.e. extract all ads that are already visible on the page)
             for ad_index, ad_element in enumerate(non_chumbox_ads):
                 # print(f"Scraping non chumbox ad {ad_index} / {len(non_chumbox_ads)}")
@@ -206,6 +208,7 @@ class ExtractAdsCommand(BaseCommand):
                             },
                         )
                     ad_number += 1
+                    print(possible_ad_urls)
                 except Exception as e:
                     print(f"Failed to extract {ad_element}")
                     print(e)
@@ -270,6 +273,7 @@ class ExtractAdsCommand(BaseCommand):
                         if not chumbox_ad_counted:
                             ad_number += 1
                             chumbox_ad_counted = True
+                        print(possible_ad_urls)
                     except Exception as e:
                         print(f"Failed to extract sub ad {sub_ad} from ad chumbox")
                         print(e)

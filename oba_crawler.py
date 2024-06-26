@@ -31,7 +31,7 @@ from openwpm.task_manager import TaskManager
 
 # COMMAND: nohup python {running_script}.py > {experiment_name}.log 2>&1 &
 
-# examples:
+# examples commands to run the experiment in a virtual machine with nohup and logging to a file, leaving it running in the background:
 # nohup python -m oba.input_run_files.{experiment_name}.{choice}.2_create_experiment > logs/{experiment_name}_{run_number}.log 2>&1 &
 # nohup python -m oba.input_run_files.style_and_fashion_experiment.accept.2_create_experiment > logs/style_and_fashion_experiment.log 2>&1 &
 # nohup python -m oba.input_run_files.style_and_fashion_experiment.do_nothing.2_create_experiment > logs/style_and_fashion_experiment.log 2>&1 &
@@ -62,11 +62,15 @@ class OBAMeasurementExperiment:
         custom_pages_params: CustomPagesParams = None,
         webshrinker_credentials: WebShrinkerCredentials = None,
         # Display mode for the OBA browser
-        display_mode: Literal["headless", "native"] = "headless",
+        browser_display_mode: Literal["headless", "native"] = "headless",
         control_visits_urls: list = None,
+        control_visits_rate: int = 20,
+        expovar_mean: int = EXPOVAR_MEAN,
     ):
         self.start_time = time.time()
         self.experiment_name = experiment_name
+        self.control_visits_rate = control_visits_rate
+        self.expovar_mean = expovar_mean
         # Importing 'oba_commands_sequences' dynamically after setting 'experiment_name'.
         # This ensures that any paths or configurations influenced by 'experiment_name' in 'oba_commands_sequences'
         # and its dependent modules (like 'CMPB_commands', which imports 'config.py') are correctly initialized.
@@ -117,7 +121,10 @@ class OBAMeasurementExperiment:
             "http://weather2umbrella.com/",
         ]
 
-        self.control_visits_urls = control_visits_urls
+        if control_visits_urls:
+            self.control_visits_urls = control_visits_urls
+        else:
+            self.control_visits_urls = self.control_pages
 
         # Browser profile validation
         if fresh_experiment and Path(self.data_dir).exists():
@@ -241,7 +248,7 @@ class OBAMeasurementExperiment:
 
         self.manager_params, self.browser_params = self._task_manager_config(
             save_or_load_profile,
-            browser_display_mode=display_mode,
+            browser_display_mode=browser_display_mode,
         )
 
         # Catch Signals
@@ -351,7 +358,13 @@ class OBAMeasurementExperiment:
     #         but if the process is killed, the profile is not dumped but all of the experiment data is already saved, so we could
     #         call DumpProfileCommand periodically so if a several-hour crawling process is just killed, the profile still matches most of the experiment data for later runs.
     #         (also could be called in the signal_handler and in the error handling of the experiment_crawling method)
-    def start(self, hours: int = 0, minutes: int = 0, browser_mode="headless"):
+    def start(
+        self,
+        hours: int = 0,
+        minutes: int = 0,
+        random_run=False,
+        youtube=False,
+    ):
         """Main method of the class to run the experiment"""
 
         def get_amount_of_visits():
@@ -380,29 +393,31 @@ class OBAMeasurementExperiment:
                 if self.fresh_experiment:
                     next_site_rank = 1
                     self._fresh_experiment_setup_and_clean_run(
-                        manager, do_a_clean_run=False
+                        manager, do_a_clean_run=self.do_clean_runs
                     )
                 else:
                     next_site_rank = get_amount_of_visits() + 1
 
                 print("Launching OBA Crawler... \n")
-                # self.experiment_crawling(next_site_rank, manager, hours, minutes)
-                # In stead of doing the experiment_crawling, we will do a control run where we will visit the control pages for each option in the same order and amount than in the experiments to then be able to compare the ads found in the control runs with the ones found in the experiments
-
-                for control_site in self.control_visits_urls:
-                    print(
-                        f"---- Visiting {control_site} for the control run ---- VISIT NUMBER: {next_site_rank} / {len(self.control_visits_urls)} ----"
-                    )
-                    command_sequence = (
-                        self._dynamically_imported.control_site_visit_sequence(
-                            control_site=control_site,
-                            next_site_rank=next_site_rank,
-                            cookie_banner_action=self.cookie_banner_action,
-                            clean_run=True,
+                if not random_run:
+                    self.experiment_crawling(next_site_rank, manager, hours, minutes)
+                else:
+                    # In stead of doing the experiment_crawling, we will do a control run where we will visit the control pages for each option in the same order and amount than in the experiments to then be able to compare the ads found in the control runs with the ones found in the experiments
+                    for control_site in self.control_visits_urls:
+                        print(
+                            f"---- Visiting {control_site} for the control run ---- VISIT NUMBER: {next_site_rank} / {len(self.control_visits_urls)} ----"
                         )
-                    )
-                    manager.execute_command_sequence(command_sequence, index=0)
-                    next_site_rank += 1
+                        command_sequence = (
+                            self._dynamically_imported.control_site_visit_sequence(
+                                control_site=control_site,
+                                next_site_rank=next_site_rank,
+                                cookie_banner_action=self.cookie_banner_action,
+                                clean_run=self.do_clean_runs,
+                                youtube=youtube,
+                            )
+                        )
+                        manager.execute_command_sequence(command_sequence, index=1)
+                        next_site_rank += 1
 
                 # This logs an ERROR
                 manager.close()
@@ -415,13 +430,6 @@ class OBAMeasurementExperiment:
             self._write_cleanup_message(error_run_message, exception_message=exc)
             # Throw error again to be able to see it in the nohup log
             raise exc
-
-    # @staticmethod
-    # def signal_handler(sig, frame):
-    #     # Access the instance via the frame's local variables
-    #     instance = frame.f_locals["self"]
-    #     # instance.signal_cleanup()
-    #     sys.exit(0)
 
     def _write_cleanup_message(self, log_message_phrase, exception_message=""):
         """Private method to be called when the experiment is terminated writing the runtime to the runtime_log.txt file"""
@@ -544,8 +552,8 @@ class OBAMeasurementExperiment:
         minutes = minutes * _minutes_in_seconds
         while time.time() - run_start_time < hours + minutes:
             print(f"TIME ELAPSED: {time.time() - run_start_time}")
-            training_or_control_dice = random.randint(1, 10)
-            if training_or_control_dice > 2:
+            training_or_control_dice = random.randint(1, 100)
+            if training_or_control_dice > self.control_visits_rate:
                 # TESTING
                 # if False:
                 # TRAINING
@@ -572,7 +580,7 @@ class OBAMeasurementExperiment:
             for command_sequence in sequence_list:
                 # Wait exponential distribution between command sequences
                 # TESTING NO WAIT
-                wait_time = int(random.expovariate(1 / EXPOVAR_MEAN))
+                wait_time = int(random.expovariate(1 / self.expovar_mean))
                 print(f"Waiting {wait_time} seconds before next command sequence")
                 time.sleep(wait_time)
                 manager.execute_command_sequence(command_sequence, index=1)

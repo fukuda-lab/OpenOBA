@@ -10,12 +10,12 @@ import sqlite3
 from typing import List, Dict, Literal, Tuple
 import matplotlib.pyplot as plt
 
-DATA_FROM_VOLUME = True
+DATA_FROM_VOLUME = False
 DATA_CONTROL_RUNS = False
 RESULTS_DIR = "/Volumes/LaCie/OpenOBA/RESULTS"
 
 
-class OBAQuantifier:
+class OBAAnalysis:
     def __init__(
         self,
         experiment_name: str,

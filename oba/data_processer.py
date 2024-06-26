@@ -39,15 +39,17 @@ WEBSHRINKER_CREDENTIALS = {
     "api_key": "GhU39K7bdfvdxRlcnEkT",
     "secret_key": "ZwnCzHIpw08DF10Fmz5c",
 }
-DATA_FROM_VOLUME = True
+DATA_FROM_VOLUME = False
 
 
 class DataProcesser:
     # Create a logger
     logger = logging.getLogger(__name__)
 
-    def __init__(self, experiment_name: str, webshrinker_credentials):
+    def __init__(self, experiment_name: str, webshrinker_credentials, random_run=False):
         self.experiment_name = experiment_name
+
+        self.random_run = random_run
 
         self.firefox_binary_path = get_firefox_binary_path()
         self.driver = self._setup_driver()
@@ -57,17 +59,14 @@ class DataProcesser:
 
         print("Loading experiment from: ")
         if DATA_FROM_VOLUME:
-            # self.experiment_data_dir = (
-            #     f"/Volumes/FOBAM_data/8_days/datadir/{self.experiment_name}/"
-            # )
             self.experiment_data_dir = (
-                f"/Volumes/FOBAM_data/control_runs/{self.experiment_name}/"
+                f"/Volumes/LaCie/OpenOBA/control_runs/{self.experiment_name}/"
             )
             self.sqlite_path = Path(self.experiment_data_dir + "crawl-data.sqlite")
             # self.sqlite_path = Path(self.experiment_data_dir + "crawl-data-copy.sqlite")
             print(self.sqlite_path)
         else:
-            self.experiment_data_dir = f"/datadir/{self.experiment_name}/"
+            self.experiment_data_dir = f"./datadir/{self.experiment_name}/"
             self.sqlite_path = Path(self.experiment_data_dir + "crawl-data.sqlite")
             print(self.sqlite_path)
 
@@ -218,12 +217,15 @@ class DataProcesser:
                 oba_browser_queries.get_unresolved_advertisements_query(),
                 {"browser_id": browser_id},
             )
+
+            print(oba_browser_queries.get_unresolved_advertisements_query())
             unresolved_visit_ads = crawled_data_cursor.fetchall()
 
             # Get a list of unique ad URLs
             unique_unresolved_ad_urls = list(
                 set([ad_url for _, ad_url in unresolved_visit_ads])
             )
+            print(unique_unresolved_ad_urls)
 
             # Then resolve all the unique landing page URLs for the unresolved ads
             for ad_url in unique_unresolved_ad_urls:
@@ -383,8 +385,10 @@ class DataProcesser:
         self.filter_ads(non_ads=True, unspecific_ads=True)
 
         # Set dynamic ads for the Instance
-        # self.process_browsers_new_ads(crawl_cursor, crawl_conn, oba_browser_ids)
-        self.process_browsers_new_ads(crawl_cursor, crawl_conn, clear_browser_ids)
+        if self.random_run:
+            self.process_browsers_new_ads(crawl_cursor, crawl_conn, clear_browser_ids)
+        else:
+            self.process_browsers_new_ads(crawl_cursor, crawl_conn, oba_browser_ids)
 
         # Save the changes
         crawl_conn.commit()

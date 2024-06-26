@@ -1,7 +1,7 @@
 # The file was run from the fobam directory
 
 import pandas as pd
-from oba.oba_analysis import OBAQuantifier
+from oba.oba_analysis import OBAAnalysis
 from oba.experiment_metrics import ExperimentMetrics
 
 RESULTS_DIR = "/Volumes/LaCie/OpenOBA/RESULTS/"
@@ -10,7 +10,7 @@ RESULTS_DIR = "/Volumes/LaCie/OpenOBA/RESULTS/"
 def get_metrics_tables(experiment_name: str, cookie_banner_option: int, category: str):
     # OBA RUN
 
-    oba_quantifier = OBAQuantifier(
+    oba_quantifier = OBAAnalysis(
         experiment_name=experiment_name,
         experiment_category=category,
     )
@@ -33,7 +33,7 @@ def get_metrics_tables(experiment_name: str, cookie_banner_option: int, category
     experiment_control_name = (
         f"control_run_{['do_nothing', 'accept', 'reject'][cookie_banner_option]}"
     )
-    control_runs = OBAQuantifier(
+    control_runs = OBAAnalysis(
         experiment_name=experiment_control_name,
         experiment_category=category,
         control_runs=True,
@@ -102,8 +102,8 @@ print(summary_df)
 summary_df.to_markdown(RESULTS_DIR + "summary_df_new.md")
 
 # # Experiment Accept
-# # OBAQuantifier
-# oba_quantifier_accept = OBAQuantifier(
+# # OBAAnalysis
+# oba_quantifier_accept = OBAAnalysis(
 #     experiment_name="style_and_fashion_experiment_accept",
 #     experiment_category="Style & Fashion",
 # )
@@ -123,7 +123,7 @@ summary_df.to_markdown(RESULTS_DIR + "summary_df_new.md")
 
 # experiment_summary_accept = experiment_metrics_accept.get_experiment_summary()
 
-# control_runs_accept = OBAQuantifier(
+# control_runs_accept = OBAAnalysis(
 #     experiment_name="control_run_accept",
 #     experiment_category="Style & Fashion",
 #     control_runs=True,
@@ -143,8 +143,8 @@ summary_df.to_markdown(RESULTS_DIR + "summary_df_new.md")
 
 
 # # Experiment reject
-# # OBAQuantifier
-# oba_quantifier_reject = OBAQuantifier(
+# # OBAAnalysis
+# oba_quantifier_reject = OBAAnalysis(
 #     experiment_name="style_and_fashion_experiment_reject",
 #     experiment_category="Style & Fashion",
 # )
@@ -161,7 +161,7 @@ summary_df.to_markdown(RESULTS_DIR + "summary_df_new.md")
 #     experiment_metrics_reject.get_control_visits_by_url_and_browser()
 # )
 
-# control_runs_reject = OBAQuantifier(
+# control_runs_reject = OBAAnalysis(
 #     experiment_name="control_run_reject",
 #     experiment_category="Style & Fashion",
 #     control_runs=True,
@@ -181,8 +181,8 @@ summary_df.to_markdown(RESULTS_DIR + "summary_df_new.md")
 
 
 # # Experiment do_nothing
-# # OBAQuantifier
-# oba_quantifier_do_nothing = OBAQuantifier(
+# # OBAAnalysis
+# oba_quantifier_do_nothing = OBAAnalysis(
 #     experiment_name="style_and_fashion_experiment_do_nothing",
 #     experiment_category="Style & Fashion",
 # )
@@ -203,7 +203,7 @@ summary_df.to_markdown(RESULTS_DIR + "summary_df_new.md")
 #     experiment_metrics_do_nothing.get_control_visits_by_url_and_browser()
 # )
 
-# control_runs_do_nothing = OBAQuantifier(
+# control_runs_do_nothing = OBAAnalysis(
 #     experiment_name="control_run_do_nothing",
 #     experiment_category="Style & Fashion",
 #     control_runs=True,

@@ -5,26 +5,15 @@ import numpy as np
 PLOTS_DIR = "/Volumes/LaCie/OpenOBA/PLOTS/"
 
 
-def create_plot_for_instance_categories_data(data, data_dir, file_name):
-    df = pd.DataFrame(data)
+def create_plot_for_instance_categories_data(data, file_name=None, data_dir=PLOTS_DIR):
+    df = data
 
-    # Removing the "Uncategorized" category
-    df = df[df["Category"] != "Uncategorized"]
-
-    # Calculating total ads and unique ads excluding "Uncategorized"
-    total_ads = df["NumAdsFirst6"].sum()
-    total_unique_ads = df["NumUniqueAdsFirst6"].sum()
-
-    # Converting counts to percentages
-    df["PercentAdsFirst6"] = (df["NumAdsFirst6"] / total_ads) * 100
-    df["PercentUniqueAdsFirst6"] = (df["NumUniqueAdsFirst6"] / total_unique_ads) * 100
-
-    # Sorting the data by 'PercentUniqueAdsFirst6' and 'PercentAdsFirst6' to get rankings
+    # Sorting the data by 'PercentageFromAllUniqueAds' and 'percentageFromAllTotalAds' to get rankings
     df_sorted_unique = df.sort_values(
-        by="PercentUniqueAdsFirst6", ascending=False
+        by="PercentageFromAllUniqueAds", ascending=False
     ).reset_index(drop=True)
     df_sorted_total = df.sort_values(
-        by="PercentAdsFirst6", ascending=False
+        by="percentageFromAllTotalAds", ascending=False
     ).reset_index(drop=True)
 
     # Creating a mapping from category to its rank based on 'NumAds'
@@ -33,55 +22,60 @@ def create_plot_for_instance_categories_data(data, data_dir, file_name):
     # Selecting the top 15 based on unique ads and adding rank index to the Category label
     df_top15 = df_sorted_unique.head(15)
     df_top15["Category"] = df_top15["Category"].apply(
-        lambda x: f"{df_top15[df_top15['Category'] == x].index[0] + 1} - {x} ({rank_map[x]})"
+        lambda x: f"{x} ({df_top15[df_top15['Category'] == x].index[0] + 1} | {rank_map[x]})"
     )
 
     # Plotting the data
     fig, ax = plt.subplots(figsize=(12, 10))
 
     # Change color of bars depending on experiment name
-    if "accept" in file_name:
-        color = "teal"
-    elif "reject" in file_name:
-        color = "red"
-    else:
-        # color like mustard
-        color = "#FFDB58"
+    # if "accept" in file_name:
+    # color = "#228833"
+    # elif "reject" in file_name:
+    # color = "#EE6677"
+    # else:
+    # yellow
+    # color = "#CCBB44"
+    # Leave only one color
+    color = "#228833"
 
     # Adding bars for total ads and unique ads percentages
     bars = ax.barh(
         df_top15["Category"],
-        df_top15["PercentAdsFirst6"],
+        df_top15["percentageFromAllTotalAds"],
         color=color,
         alpha=0.5,
         label="Ads Percentage",
     )
     unique_bars = ax.barh(
         df_top15["Category"],
-        df_top15["PercentUniqueAdsFirst6"],
+        df_top15["PercentageFromAllUniqueAds"],
         color=color,
         alpha=1,
         label="Unique Ads Percentage",
     )
 
     # Adding labels and title
-    ax.set_xlabel("Percentage of Ads")
-    plt.legend()
+    ax.set_xlabel("Percentage of Unique Ads / Percentage of Total Ads", fontsize=14)
+    plt.legend(fontsize=12)
 
     # Annotate percentage values on bars
-    for bar in unique_bars:
-        width = bar.get_width()
-        label_x_pos = width - 5 if width > 5 else width + 5
+    for unique_bar, total_bar in zip(unique_bars, bars):
+        unique_width = unique_bar.get_width()
+        total_width = total_bar.get_width()
+        label_x_pos = unique_width + 2  # Slightly offset to avoid overlap
         ax.text(
             label_x_pos,
-            bar.get_y() + bar.get_height() / 2,
-            f"{width:.2f}%",
+            unique_bar.get_y() + unique_bar.get_height() / 2,
+            f"{unique_width:.2f} | {total_width:.2f}",
             va="center",
+            fontsize=12,
         )
 
-    # Customizing y-axis label colors for specific categories
+    # Customizing y-axis label colors for specific categories and increasing font size
     highlight = ["Shopping", "Style & Fashion"]
     for label in ax.get_yticklabels():
+        label.set_fontsize(12)
         if "Shopping" in label.get_text() or "Style & Fashion" in label.get_text():
             label.set_color("red")
 

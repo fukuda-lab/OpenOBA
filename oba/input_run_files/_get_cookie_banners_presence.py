@@ -1,4 +1,4 @@
-# The file was run from the fobam directory
+# The file was run from the root directory
 
 from oba_crawler import OBAMeasurementExperiment
 

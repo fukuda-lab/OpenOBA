@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS visit_advertisements (
     oba_potential BOOLEAN DEFAULT FALSE,
     non_ad BOOLEAN DEFAULT NULL,
     unspecific_ad BOOLEAN DEFAULT NULL,
-    FOREIGN KEY(visit_id) REFERENCES visits(visit_id),
+    FOREIGN KEY(visit_id) REFERENCES site_visits(visit_id),
     FOREIGN KEY(browser_id) REFERENCES crawl(browser_id),
     FOREIGN KEY(landing_page_id) REFERENCES landing_pages(landing_page_id)
 );

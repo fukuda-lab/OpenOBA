@@ -1,3 +1,6 @@
+# This file is meant to be run after having the data from the three instances of the experiment (accept, reject, do_nothing)
+# Below is commented code for CONTROL/RANDOM RUNS analysis as well
+
 from oba.experiment_metrics import ExperimentMetrics
 import pandas as pd
 
@@ -185,7 +188,7 @@ ExperimentMetrics.plot_ad_providers_vs_other(
 )
 
 
-# # # ----- DATA FOR CONTROL RUNS -----
+# # # ----- DATA FOR CONTROL/RANDOM RUNS -----
 
 metrics_accept_control = ExperimentMetrics("control_run_accept", control_runs=True)
 experiment_metrics = ExperimentMetrics("style_and_fashion_experiment_accept")

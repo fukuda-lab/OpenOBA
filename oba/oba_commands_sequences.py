@@ -26,6 +26,8 @@ def control_site_visit_sequence(
     next_site_rank: str = 0,
     clean_run: bool = False,
     cookie_banner_action: int = 0,
+    # This command was to extract ads from youtube videos, extracting at different times of the visit
+    youtube=False,
 ):
     """Returns a command sequence that makes a clean run for a given control_site"""
 
@@ -44,23 +46,37 @@ def control_site_visit_sequence(
     domain = urlparse(control_site).netloc.split(".")[0]
     wait_time = random.randint(int(CONTROL_SITE_WAIT_REF / 2), CONTROL_SITE_WAIT_REF)
     if cookie_banner_action == 0:
+        # if youtube:
+        #     control_site_sequence.append_command(
+        #         ExtractAdsCommand(url=control_site, clean_run=clean_run),
+        #         timeout=TIME_OUT * 11,
+        #     )
         control_site_sequence.append_command(
             GetCommand(control_site, sleep=wait_time if not TESTING else 10),
             timeout=(
                 wait_time + 2 * CONTROL_SITE_WAIT_REF if not TESTING else TIME_OUT * 11
             ),
         )
+        # if youtube:
+        #     control_site_sequence.append_command(
+        #         ExtractAdsCommand(url=control_site, clean_run=clean_run),
+        #         timeout=TIME_OUT * 11,
+        #     )
     else:
+        # if youtube:
+        #     control_site_sequence.append_command(
+        #         ExtractAdsCommand(url=control_site, clean_run=clean_run),
+        #         timeout=TIME_OUT * 11,
+        #     )
         control_site_sequence.append_command(
             CMPBCommand(
                 control_site,
-                sleep=wait_time if not TESTING else 5,
+                sleep=wait_time if not TESTING else 10,
                 timeout=(
                     wait_time + 2 * CONTROL_SITE_WAIT_REF if not TESTING else TIME_OUT
                 ),
                 index=next_site_rank,
                 choice=cookie_banner_action,
-                # result_csv_file_name=banner_results_csv_name,
             ),
             timeout=(
                 wait_time + (CONTROL_SITE_WAIT_REF + TIME_OUT) * 11
@@ -68,19 +84,19 @@ def control_site_visit_sequence(
                 else TIME_OUT * 11
             ),
         )
+        # if youtube:
+        #     control_site_sequence.append_command(
+        #         ExtractAdsCommand(url=control_site, clean_run=clean_run),
+        #         timeout=TIME_OUT * 11,
+        #     )
     if clean_run:
         sc_suffix = "_C_"
     else:
         sc_suffix = "_"
     control_site_sequence.append_command(
-        # ScreenshotFullPageCommand("_"), timeout=wait_time
         ScreenshotFullPageCommand(sc_suffix),
         timeout=TIME_OUT * 11,
     )
-    # control_site_sequence.append_command(
-    #     RecursiveDumpPageSourceCommand(domain),
-    #     timeout=TIME_OUT * 11,
-    # )
     control_site_sequence.append_command(
         ExtractAdsCommand(url=control_site, clean_run=clean_run),
         timeout=TIME_OUT * 11,

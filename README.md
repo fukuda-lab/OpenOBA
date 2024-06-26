@@ -26,7 +26,7 @@ To quantify this phenomenon, we require all of the ads that were shown to the us
 
 OpenOBA is built on top of Bannerclick's OpenWPM framework ver `0.21.0`. It uses the following versions of its parts as reference:
 
-First prerequisite is mamba, which will be used to install the *openwpm* conda environment. As stated in the [mamba installation guide](https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html), we can use *`[miniforge](https://github.com/conda-forge/miniforge)`.* To install it we can simply 
+First prerequisite is mamba, which will be used to install the *openwpm* conda environment. As stated in the [mamba installation guide](https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html), we can use *[miniforge](https://github.com/conda-forge/miniforge).* To install it we can simply 
 
 ```bash
 curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
@@ -67,7 +67,7 @@ pip install -r requirements.txt
 If everything is working correctly, we should be able to run `[demo.py](http://demo.py)` file (with the openwpm env activated)
 
 ```bash
-python oba_crawler_demo.py
+python -m demos.1_oba_crawler_demo
 ```
 
 - TO RUN IN MACOS:
@@ -75,13 +75,13 @@ python oba_crawler_demo.py
     `OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES` before any python command:
     
     ```bash
-    OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES python oba_crawler_demo.py
+    OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES python -m demos.1_oba_crawler_demo
     ```
 
 
 # Documentation
 
-- **Categorizer** *(private class, internal use only)*: Given valid credentials, using WebShrinker API is able to categorize URLs with the IAB taxonomy or WebShrinker own Taxonomy.
+- **Categorizer** *(private class, internal use only)*: Given valid credentials, using WebShrinker API is able to categorize URLs with the IAB taxonomy or WebShrinker own Taxonomy. Used by TrainingPagesHandler and DataProcesser.
 - **TrainingPagesHandler** *(public class if a user wants to access its functionalities, intended to be used just by OBACrawler class)*:
 This class has several functionalities, but in summary:
     1.  it takes charge into fetching training pages from tranco and saving them in a file
