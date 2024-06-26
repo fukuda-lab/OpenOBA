@@ -155,7 +155,8 @@ This class handles the setup of the environment according to the arguments value
 
 
 ## Experiment run
-*This is an explanation of some of the parameters for an experiment run using **OpenOBA***
+*This is an explanation of some of the parameters for an experiment run using **OpenOBA***.
+Adjust the imports/runs according to where the scripts are being ran/called
 ### Description
 <aside>
 👉 We want to measure the impact of users’ choice of cookie banners on the exposure to OBA they will receive.
