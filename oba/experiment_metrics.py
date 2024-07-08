@@ -21,7 +21,7 @@ from oba.enums import (
     U_GROUP,
 )
 
-DATA_FROM_VOLUME = False
+DATA_FROM_VOLUME = True
 DATA_CONTROL_RUNS = False
 
 
@@ -113,9 +113,6 @@ class ExperimentMetrics:
         # Execute the query and load the data into a DataFrame
         df = pd.read_sql_query(query, self.conn)
 
-        # Close the connection
-        self.conn.close()
-
         # Group by ad_id and aggregate the categories
         df_grouped = (
             df.groupby("ad_id")
@@ -152,6 +149,7 @@ class ExperimentMetrics:
         df_grouped["landingpage_domain"] = df_grouped["landing_page_url"].apply(
             lambda x: tldextract.extract(x).registered_domain
         )
+        # return df_grouped
 
         df_grouped["group"] = np.where(
             df_grouped["adurl_domain"] != df_grouped["landingpage_domain"], "A", "Other"
@@ -164,8 +162,61 @@ class ExperimentMetrics:
             )
         ]
 
-        # return df_grouped
         return df_grouped_filtered
+
+    def get_ads_by_category_table_all_browsers_old(self) -> List[Dict]:
+        """Old way of counting ads by category"""
+
+        # SQL query to join the tables and get the required fields
+        query = """
+        SELECT
+            va.ad_id,
+            va.ad_url,
+            va.landing_page_url,
+            lp.category_id,
+            lp.category_name,
+            sv.site_url,
+            va.visit_id,
+            va.browser_id
+        FROM
+            visit_advertisements va
+        LEFT JOIN
+            landing_page_categories lp ON va.landing_page_id = lp.landing_page_id
+        LEFT JOIN
+            site_visits sv ON va.visit_id = sv.visit_id
+        WHERE va.categorized = TRUE AND va.non_ad IS NULL AND va.unspecific_ad IS NULL AND va.clean_run = FALSE
+        """
+
+        # Execute the query and load the data into a DataFrame
+        df = pd.read_sql_query(query, self.conn)
+
+        # Group by ad_id and aggregate the categories
+        df_grouped = (
+            df.groupby("ad_id")
+            .agg(
+                {
+                    "ad_url": "first",
+                    "landing_page_url": "first",
+                    "category_name": lambda x: list(x.dropna().unique()),
+                    "site_url": "first",
+                    "visit_id": "first",
+                    "browser_id": "first",
+                }
+            )
+            .reset_index()
+        )
+
+        # Rename the category_name column to categories
+        df_grouped.rename(columns={"category_name": "categories"}, inplace=True)
+
+        # Last two browser_ids
+        first_6_browser_ids = self.oba_browsers[:6]
+
+        # Filter out the last two browser_ids
+        df_grouped = df_grouped[df_grouped["browser_id"].isin(first_6_browser_ids)]
+
+        # print(df_grouped)
+        return df_grouped
 
     def get_ads_by_category_grouped_by_artificial_sessions_and_site_url(
         self,
@@ -541,6 +592,54 @@ class ExperimentMetrics:
         result = (list(total_ads_group_a), list(total_ads_other_groups))
 
         return result
+
+    def count_ads_by_session_any_provider(self, ads_df, category_filter=None):
+        """Then we add a new column with the domain of the ad_url, and with that column we create a new one with the group the domain belongs to. Finally we group by the session and count the number of ads per group."""
+        if category_filter:
+            ads_df = ads_df[ads_df["categories"].apply(lambda x: category_filter in x)]
+
+        # Extract the domain from the ad_url domain and landing_page_url domain
+        ads_df["adurl_domain"] = ads_df["ad_url"].apply(
+            lambda x: tldextract.extract(x).registered_domain
+        )
+
+        # Extract the domain from the landing_page_url domain
+        ads_df["landingpage_domain"] = ads_df["landing_page_url"].apply(
+            lambda x: tldextract.extract(x).registered_domain
+        )
+
+        # group by session and visit and count the number of unique ads
+        grouped_ads = (
+            ads_df.groupby(["browser_id", "visit_id"])["ad_url"]
+            .nunique()
+            .reset_index()
+            .rename(columns={"ad_url": "NumAds"})
+        )
+
+        # Now group by session and count the number of ads
+        grouped_ads = grouped_ads.groupby(["browser_id"])["NumAds"].sum().reset_index()
+
+        # Order the groups by the self.browser_ids order
+        first_6_oba_browsers = self.oba_browsers[:6]
+
+        grouped_ads["browser_id"] = pd.Categorical(
+            grouped_ads["browser_id"], categories=first_6_oba_browsers, ordered=True
+        )
+        grouped_ads = grouped_ads.sort_values(by=["browser_id"])
+
+        # Now transform the DataFrame to a list of the total number of ads per session, and fill with 0 if the session has no ads
+        total_ads = []
+        for browser_id in first_6_oba_browsers:
+            try:
+                total_ads.append(
+                    grouped_ads[grouped_ads["browser_id"] == browser_id][
+                        "NumAds"
+                    ].values[0]
+                )
+            except IndexError:
+                total_ads.append(0)
+
+        return total_ads
 
     def count_ads_by_session(self, ads_df, category_filter=None):
         """Then we add a new column with the domain of the ad_url, and with that column we create a new one with the group the domain belongs to. Finally we group by the session and count the number of ads per group."""
@@ -1513,6 +1612,9 @@ class ExperimentMetrics:
 
     @staticmethod
     def plot_ads_boxplot(data, file_name, data_dir):
+        print("DATA = ")
+        print(data)
+
         # Ensure the directory exists
         os.makedirs(os.path.join(data_dir, "boxplots"), exist_ok=True)
 
@@ -1533,6 +1635,12 @@ class ExperimentMetrics:
         # Customize the colors and hatches of the boxes
         for patch, color in zip(boxplot["boxes"], box_colors):
             patch.set_facecolor(color)
+
+        # Make the median lines thicker, black, and dotted
+        for median in boxplot["medians"]:
+            median.set_linewidth(3)  # Increase the median line width
+            median.set_color("black")  # Change the median line color to black
+            median.set_linestyle("--")  # Set the median line style to dotted
 
         # Customize the plot labels
         ylabel_msg = "# Ads"

@@ -13,7 +13,6 @@ import shutil
 
 from bannerclick.config import (
     update_bannerclick_config_paths_with_experiment_name,
-    WATCHDOG,
 )
 from oba.enums import (
     IAB_CATEGORIES,
@@ -136,8 +135,13 @@ class OBAMeasurementExperiment:
             if answer == "y":
                 answer2 = input("Are you sure? (y/n)\n")
                 if answer2 == "y":
-                    shutil.rmtree(self.data_dir)
-                    print("Folder removed")
+                    try:
+                        shutil.rmtree(self.data_dir)
+                        print("Folder removed")
+                    except PermissionError:
+                        error_msg = f"The experiment folder in {self.data_dir} could not be removed, please remove it manually. Granting root permissions is not recommended since it induces errors with Selenium (see https://bugzilla.mozilla.org/show_bug.cgi?id=1460297)"
+                        # Create a custom exception for this case and raise it
+                        raise PermissionError(error_msg)
             else:
                 print("Exiting...")
                 raise FileExistsError()
@@ -484,8 +488,8 @@ class OBAMeasurementExperiment:
         manager_params.data_directory = Path(self.data_dir)
         manager_params.log_path = Path(self.data_dir + "openwpm.log")
 
-        manager_params.memory_watchdog = WATCHDOG
-        manager_params.process_watchdog = WATCHDOG
+        # manager_params.memory_watchdog = WATCHDOG
+        # manager_params.process_watchdog = WATCHDOG
 
         # Allow for many consecutive failures
         # The default is 2 x the number of browsers plus 10 (2x20+10 = 50)
@@ -543,7 +547,7 @@ class OBAMeasurementExperiment:
         """
 
         # Start with one second ahead
-        run_start_time = time.time() + 1
+        run_start_time = time.time()
 
         _hours_in_seconds = 60 * 60
         _minutes_in_seconds = 60
@@ -563,7 +567,6 @@ class OBAMeasurementExperiment:
                     training_sample,
                     next_site_rank,
                     cookie_banner_action=self.cookie_banner_action,
-                    # banner_results_csv_name=self.banner_results_filename,
                 )
             else:
                 # CONTROL
@@ -572,7 +575,6 @@ class OBAMeasurementExperiment:
                         random.choice(self.control_pages),
                         next_site_rank,
                         cookie_banner_action=self.cookie_banner_action,
-                        # banner_results_csv_name=self.banner_results_filename,
                     )
                 ]
             print("GOT SEQUENCE LIST: ", sequence_list)
@@ -617,17 +619,17 @@ class OBAMeasurementExperiment:
         # Update browser configuration (use this for per-browser settings)
         for browser_params in browsers_params:
             # Record HTTP Requests and Responses
-            browser_params.http_instrument = False
+            browser_params.http_instrument = True
             # Record cookie changes
             browser_params.cookie_instrument = True
             # Record Navigations
             browser_params.navigation_instrument = True
             # Record JS Web API calls
-            browser_params.js_instrument = False
+            browser_params.js_instrument = True
             # Record the callstack of all WebRequests made
-            browser_params.callstack_instrument = False
+            browser_params.callstack_instrument = True
             # Record DNS resolution
-            browser_params.dns_instrument = False
+            browser_params.dns_instrument = True
 
             browser_params.bot_mitigation = True
 
@@ -637,8 +639,8 @@ class OBAMeasurementExperiment:
             "./oba/datadir_training_pages/_crawls/" + "openwpm.log"
         )
 
-        manager_params.memory_watchdog = WATCHDOG
-        manager_params.process_watchdog = WATCHDOG
+        # manager_params.memory_watchdog = WATCHDOG
+        # manager_params.process_watchdog = WATCHDOG
 
         # Allow for many consecutive failures
         # The default is 2 x the number of browsers plus 10 (2x20+10 = 50)

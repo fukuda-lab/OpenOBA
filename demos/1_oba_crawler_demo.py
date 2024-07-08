@@ -7,6 +7,7 @@ test_fashion_experiment = OBAMeasurementExperiment(
     fresh_experiment=True,
     do_clean_runs=False,
     cookie_banner_action=1,
+    # browser_display_mode="native",
 )
 
 # We get the most popular pages by category that were confidently classified and with cookie banner presence (we can access the ones that have cookie banner presence)

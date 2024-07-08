@@ -26,7 +26,13 @@ if [ "$1" != "--skip-create" ]; then
   echo 'Creating / Overwriting openwpm conda environment.'
   # `PYTHONNOUSERSITE` set so python ignores local user site libraries when building the env
   # See: https://github.com/openwpm/OpenWPM/pull/682#issuecomment-645648939
-  PYTHONNOUSERSITE=True conda env create --force -q -f environment.yaml
+
+  # `-q` (--quiet) is used to suppress output from the conda env create command
+  # `-f` is used to specify the environment file
+  # `--force` is used to overwrite the environment if it already exists
+  # Depending on the conda version, the `--force` flag may not be available, in which case the `--yes` flag should be used (https://github.com/bannerclick/bannerclick/pull/6)
+
+  PYTHONNOUSERSITE=True conda env create --yes -q -f environment.yaml
 fi
 
 echo 'Activating environment.'

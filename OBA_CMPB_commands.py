@@ -208,7 +208,7 @@ class ExtractAdsCommand(BaseCommand):
                             },
                         )
                     ad_number += 1
-                    print(possible_ad_urls)
+                    # print(possible_ad_urls)
                 except Exception as e:
                     print(f"Failed to extract {ad_element}")
                     print(e)
@@ -273,7 +273,7 @@ class ExtractAdsCommand(BaseCommand):
                         if not chumbox_ad_counted:
                             ad_number += 1
                             chumbox_ad_counted = True
-                        print(possible_ad_urls)
+                        # print(possible_ad_urls)
                     except Exception as e:
                         print(f"Failed to extract sub ad {sub_ad} from ad chumbox")
                         print(e)
@@ -286,8 +286,6 @@ class ExtractAdsCommand(BaseCommand):
                     "failed in CMPBCommand for url: " + self.url + " " + e.__str__(),
                     file=f,
                 )
-
-        print(f"Extracted {ad_number} ads from {self.url}")
 
 
 class SubGetCommand(BaseCommand):

@@ -12,6 +12,7 @@ metrics_accept = ExperimentMetrics(
 )
 accept_summary = metrics_accept.get_experiment_summary(is_control_run=False)
 ads_oba_accept_df = metrics_accept.get_ads_by_category_table_all_browsers()
+# oba_accept_ads_df_old = metrics_accept.get_ads_by_category_table_all_browsers_old()
 oba_accept_ads_all_domains = metrics_accept.count_ads_by_domain(ads_oba_accept_df)
 oba_accept_ads_style_domains = metrics_accept.count_ads_by_domain(
     ads_oba_accept_df, category_filter="Style & Fashion"
@@ -56,6 +57,7 @@ metrics_reject = ExperimentMetrics(
 )
 reject_summary = metrics_reject.get_experiment_summary(is_control_run=False)
 ads_oba_reject_df = metrics_reject.get_ads_by_category_table_all_browsers()
+# oba_reject_ads_df_old = metrics_reject.get_ads_by_category_table_all_browsers_old()
 oba_reject_ads_all_domains = metrics_reject.count_ads_by_domain(ads_oba_reject_df)
 oba_reject_ads_style_domains = metrics_reject.count_ads_by_domain(
     ads_oba_reject_df, category_filter="Style & Fashion"
@@ -96,6 +98,9 @@ metrics_do_nothing = ExperimentMetrics(
 )
 do_nothing_summary = metrics_do_nothing.get_experiment_summary(is_control_run=False)
 ads_oba_do_nothing_df = metrics_do_nothing.get_ads_by_category_table_all_browsers()
+# oba_do_nothing_ads_df_old = (
+#     metrics_do_nothing.get_ads_by_category_table_all_browsers_old()
+# )
 oba_do_nothing_ads_all_domains = metrics_do_nothing.count_ads_by_domain(
     ads_oba_do_nothing_df
 )
@@ -107,11 +112,13 @@ oba_do_nothing_ads_shopping_domains = metrics_do_nothing.count_ads_by_domain(
 )
 oba_do_nothing_style_ads_1, oba_do_nothing_style_ads_2 = (
     metrics_reject.count_ads_by_session(
-        ads_oba_reject_df, category_filter="Style & Fashion"
+        ads_oba_do_nothing_df, category_filter="Style & Fashion"
     )
 )
 oba_do_nothing_shopping_ads_1, oba_do_nothing_shopping_ads_2 = (
-    metrics_reject.count_ads_by_session(ads_oba_reject_df, category_filter="Shopping")
+    metrics_reject.count_ads_by_session(
+        ads_oba_do_nothing_df, category_filter="Shopping"
+    )
 )
 oba_do_nothing_style_and_shopping_1 = []
 oba_do_nothing_style_and_shopping_2 = []
@@ -144,20 +151,42 @@ do_nothing_evolution_shopping_df = metrics_do_nothing.get_ads_evolution_by_sessi
 #     "ads_evolution_total",
 #     PLOTS_DIR,
 # )
+
+# oba_accept_style_ads_old = metrics_accept.count_ads_by_session_any_provider(
+#     oba_accept_ads_df_old, category_filter="Style & Fashion"
+# )
+# oba_accept_shopping_ads_old = metrics_accept.count_ads_by_session_any_provider(
+#     oba_accept_ads_df_old, category_filter="Shopping"
+# )
+
+# oba_reject_style_ads_old = metrics_reject.count_ads_by_session_any_provider(
+#     oba_reject_ads_df_old, category_filter="Style & Fashion"
+# )
+# oba_reject_shopping_ads_old = metrics_reject.count_ads_by_session_any_provider(
+#     oba_reject_ads_df_old, category_filter="Shopping"
+# )
+
+# oba_do_nothing_style_ads_old = metrics_do_nothing.count_ads_by_session_any_provider(
+#     oba_do_nothing_ads_df_old, category_filter="Style & Fashion"
+# )
+# oba_do_nothing_shopping_ads_old = metrics_do_nothing.count_ads_by_session_any_provider(
+#     oba_do_nothing_ads_df_old, category_filter="Shopping"
+# )
+
 # ExperimentMetrics.plot_ads_boxplot(
 #     [
-#         oba_accept_style_ads,
-#         oba_do_nothing_style_ads,
-#         oba_reject_style_ads,
+#         oba_accept_style_ads_old,
+#         oba_do_nothing_style_ads_old,
+#         oba_reject_style_ads_old,
 #     ],
 #     "ads_boxplot_style",
 #     PLOTS_DIR,
 # )
 # ExperimentMetrics.plot_ads_boxplot(
 #     [
-#         oba_accept_shopping_ads,
-#         oba_do_nothing_shopping_ads,
-#         oba_reject_shopping_ads,
+#         oba_accept_shopping_ads_old,
+#         oba_do_nothing_shopping_ads_old,
+#         oba_reject_shopping_ads_old,
 #     ],
 #     "ads_boxplot_shopping",
 #     PLOTS_DIR,
