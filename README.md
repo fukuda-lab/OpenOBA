@@ -56,13 +56,7 @@ If the last step was successful, we can now just install the missing dependencie
 conda activate openwpm
 ```
 
-In case there is some dependency problem, see if there are any mismatches between `environment.yaml` and `requirements.txt`. If so, try installing `requirements.txt`
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Run demos
+### 3. Run demos
 
 If everything is working correctly, we should be able to run the demo files from the [demos](https://github.com/fukuda-lab/OpenOBA/tree/main/demos) folder (with the openwpm env activated).
 In summary, these demo files show a  very basic use of the main classes of the framework `OBAMeasurementExperiment` , `DataProcesser`, and `ExperimentMetrics` (merged with a previously called `OBAAnalysis` class).
@@ -71,7 +65,7 @@ The demos would be run chronologically as 1, 2, 3 and 4.
 
 See their code to follow/change the directories for data, results, and plots.
 
-#### 4.a
+#### 3.a
 ```bash
 python -m demos.1_oba_crawler_demo
 ```
@@ -84,7 +78,7 @@ python -m demos.1_oba_crawler_demo
     OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES python -m demos.1_oba_crawler_demo
     ```
 
-#### 4.b
+#### 3.b
 ```bash
 python -m demos.2_oba_crawler_load_experiment_demo
 ```
@@ -94,15 +88,19 @@ python -m demos.2_oba_crawler_load_experiment_demo
     ```bash
     OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES python -m demos.2_oba_crawler_load_experiment_demo
     ```
-#### 4.c
+#### 3.c
 ```bash
 python -m demos.3_data_processer_demo
 ```
 
-#### 4.d
+#### 3.d
 ```bash
 python -m demos.4_ads_analysis_demo
 ```
+
+#### Errors
+
+OpenWPM does not output all of the errors directly. For more insights when encountering errors, see the `geckodriver.log` file created after running OpenWPM in the root directory of the repository, and `openwpm.log` in the experiment directory folder (inside the `data_dir` folder) created after creating an experiment.
 
 ### Paper Experiment
 For the input files used in our paper, see the [oba/input_run_files](https://github.com/fukuda-lab/OpenOBA/tree/main/oba/input_run_files/style_and_fashion_experiment) folder.
@@ -217,5 +215,5 @@ experiment.start(hours=3, minutes=30, browser_mode="headless")
 
 This will always first run clean visits over the control pages (in clear browsers), so we gather ads that we know that are not due to OBA, and then the *training + control* process will start.
 
-### IV. Data Processing
+### III. Data Processing
 Now we are ready to use the DataProcesser to get the landing pages for the ads as shown in the demo files 3 and 4.
