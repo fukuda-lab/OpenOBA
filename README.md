@@ -2,12 +2,13 @@
 ## About OBA and the Framework
 <aside>
 📌 The **OpenOBA** Framework (*Framework for Online Behavioral Advertising Measurement*) is a Python web privacy experimentation tool that measures and analyses the occurrence of Online Behavioral Advertising resulting from specific browsing behavior set up by the user or researcher.
-
 </aside>
 
 Based on [Bannerclick's](https://github.com/bannerclick/bannerclick) version of the [OpenWPM](https://github.com/openwpm/OpenWPM) framework, OpenOBA provides a flexible and easy-to-set-up environment where highly configurable experiments involving web crawlers and ad capture can be created and run.
 
 After each experiment's successful run, its configuration parameters, browser profile, and browsing data are saved. This allows the user to load any created experiment to keep feeding the browser with the specified behavior, or to analyze the data collected until that point to measure its OBA occurrence.
+
+Figures explaining its usage can be seen in this [folder](https://github.com/fukuda-lab/OpenOBA/tree/main/figures).
 
 **What does it mean to measure OBA?**
 
