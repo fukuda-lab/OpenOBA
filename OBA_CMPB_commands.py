@@ -283,7 +283,10 @@ class ExtractAdsCommand(BaseCommand):
             print(e)
             with open(log_file, "a+") as f:
                 print(
-                    "failed in CMPBCommand for url: " + self.url + " " + e.__str__(),
+                    "failed in ExtractAdsCommand for url: "
+                    + self.url
+                    + " "
+                    + e.__str__(),
                     file=f,
                 )
 

@@ -63,12 +63,10 @@ class OBAMeasurementExperiment:
         # Display mode for the OBA browser
         browser_display_mode: Literal["headless", "native"] = "headless",
         control_visits_urls: list = None,
-        control_visits_rate: int = 20,
         expovar_mean: int = EXPOVAR_MEAN,
     ):
         self.start_time = time.time()
         self.experiment_name = experiment_name
-        self.control_visits_rate = control_visits_rate
         self.expovar_mean = expovar_mean
         # Importing 'oba_commands_sequences' dynamically after setting 'experiment_name'.
         # This ensures that any paths or configurations influenced by 'experiment_name' in 'oba_commands_sequences'
@@ -366,6 +364,7 @@ class OBAMeasurementExperiment:
         self,
         hours: int = 0,
         minutes: int = 0,
+        control_visits_rate=20,
         random_run=False,
         youtube=False,
     ):
@@ -404,7 +403,13 @@ class OBAMeasurementExperiment:
 
                 print("Launching OBA Crawler... \n")
                 if not random_run:
-                    self.experiment_crawling(next_site_rank, manager, hours, minutes)
+                    self.experiment_crawling(
+                        next_site_rank,
+                        manager,
+                        hours,
+                        minutes,
+                        control_visits_rate=control_visits_rate,
+                    )
                 else:
                     # In stead of doing the experiment_crawling, we will do a control run where we will visit the control pages for each option in the same order and amount than in the experiments to then be able to compare the ads found in the control runs with the ones found in the experiments
                     for control_site in self.control_visits_urls:
@@ -540,7 +545,12 @@ class OBAMeasurementExperiment:
         print("JSON file updated successfully.")
 
     def experiment_crawling(
-        self, next_site_rank: int, manager: TaskManager, hours: int, minutes: int = 0
+        self,
+        next_site_rank: int,
+        manager: TaskManager,
+        hours: int,
+        minutes: int = 0,
+        control_visits_rate=20,
     ):
         """Requires fresh_experiment_setup_and_clean_run() to have been run once. Main function that manages the dices, the control and
         training sites (shrinking the lists). Calls command sequences functions returned by the oba_command_sequence.py
@@ -557,7 +567,7 @@ class OBAMeasurementExperiment:
         while time.time() - run_start_time < hours + minutes:
             print(f"TIME ELAPSED: {time.time() - run_start_time}")
             training_or_control_dice = random.randint(1, 100)
-            if training_or_control_dice > self.control_visits_rate:
+            if training_or_control_dice > control_visits_rate:
                 # TESTING
                 # if False:
                 # TRAINING

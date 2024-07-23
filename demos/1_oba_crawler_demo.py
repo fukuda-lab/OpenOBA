@@ -19,4 +19,4 @@ test_fashion_experiment.set_training_pages_by_category(
     cookie_banner_presence=1,
 )
 
-test_fashion_experiment.start(minutes=20)
+test_fashion_experiment.start(minutes=30, control_visits_rate=50)

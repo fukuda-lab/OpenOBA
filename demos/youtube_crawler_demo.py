@@ -2,7 +2,7 @@
 
 from oba_crawler import OBAMeasurementExperiment
 
-
+# FOR YOUTUBE DEMO, THE DISPLAY MODE MUST BE NATIVE SO THE USER CAN INTERACT WITH THE YOUTUBE PLAYER IF AUTOPLAY IS DISABLED IN THE BROWSER
 test_fashion_experiment = OBAMeasurementExperiment(
     experiment_name="youtube_demo_experiment",
     fresh_experiment=True,
