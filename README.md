@@ -23,7 +23,7 @@ To quantify this phenomenon, we require all of the ads that were shown to the us
 
 ## Installation
 
-### 0. Prerequisites
+### Prerequisites
 
 OpenOBA is built on top of Bannerclick's OpenWPM framework ver `0.21.0`. It uses the following versions of its parts as reference:
 
@@ -34,14 +34,14 @@ curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Mi
 bash Miniforge3-$(uname)-$(uname -m).sh
 ```
 
-### 1. Cloning the repository
+### Cloning the repository
 
 ```bash
 git clone https://github.com/fukuda-lab/OpenOBA.git
-cd openOBA
+cd OpenOBA
 ```
 
-### 2. Install OpenWPM
+### Install OpenWPM
 
 We will use the same script of OpenWPM, the only change is that we want to use specifically Firefox version `108.0.2`. If it doesn't work, try deleting the `--force` tag in `./install.sh` file
 
@@ -49,7 +49,7 @@ We will use the same script of OpenWPM, the only change is that we want to use s
 ./install.sh
 ```
 
-### 3. Install additional dependencies
+### Install additional dependencies
 
 If the last step was successful, we can now just install the missing dependencies. To do this, we have to activate the conda `openwpm` environment by running:
 
@@ -57,7 +57,7 @@ If the last step was successful, we can now just install the missing dependencie
 conda activate openwpm
 ```
 
-### 3. Run demos
+### Run demos
 
 If everything is working correctly, we should be able to run the demo files from the [demos](https://github.com/fukuda-lab/OpenOBA/tree/main/demos) folder (with the openwpm env activated).
 In summary, these demo files show a  very basic use of the main classes of the framework `OBAMeasurementExperiment` , `DataProcesser`, and `ExperimentMetrics` (merged with a previously called `OBAAnalysis` class).
