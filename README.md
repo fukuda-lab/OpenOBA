@@ -74,28 +74,28 @@ The demos would be run chronologically as 1, 2, 3 and 4.
 
 See their code to follow/change the directories for data, results, and plots.
 
-#### 3.1 Create experiment demo
+#### 1. Create experiment demo
 Demo on how to create and run a new fresh experiment instance using the `OBAMeasurementExperiment` class, selecting the experiment instance name, cookie banner action and setting its training pages. Note that `control_visits_rate` in the `start()` method, is a percentage (from 0 to 100) that dictates the proportion of control visits.
 
 ```bash
 python -m demos.1_create_experiment_demo
 ```
 
-#### 3.2 Load experiment demo
+#### 2. Load experiment demo
 Demo on how to load an experiment instance previously created with the `OBAMeasurementExperiment` class, loading its saved browser profile to resume the same experiment instance.
  
 ```bash
 python -m demos.2_load_experiment_demo
 ```
 
-#### 3.3 Data processing demo
+#### 3. Data processing demo
 Demo on how to filter, process, and categorize all the AdURLs captured during the control visits of an experiment instance using the `DataProcesser` class.
 
 ```bash
 python -m demos.3_data_processer_demo
 ```
 
-#### 3.4 Ads Analysis example demo
+#### 4. Ads Analysis example demo
 Demo on what an ad analysis script could look like, using the `ExperimentMetrics` class, which includes some example methods to query, tabulate, and plot an experiment ads data.
 
 ```bash
