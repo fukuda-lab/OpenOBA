@@ -64,39 +64,56 @@ In summary, these demo files show a  very basic use of the main classes of the f
 
 The demos would be run chronologically as 1, 2, 3 and 4.
 
-See their code to follow/change the directories for data, results, and plots.
-
-#### 3.a
-```bash
-python -m demos.1_oba_crawler_demo
-```
-
-- TO RUN IN MACOS:
+- In MacOS, remember:
     
     `OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES` before any python command:
     
     ```bash
-    OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES python -m demos.1_oba_crawler_demo
+    OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES python -m demos.1_create_experiment_demo
     ```
 
-#### 3.b
+See their code to follow/change the directories for data, results, and plots.
+
+#### 3.1 Create experiment demo
+Demo on how to create and run a new fresh experiment instance using the `OBAMeasurementExperiment` class, selecting the experiment instance name, cookie banner action and setting its training pages. Note that `control_visits_rate` in the `start()` method, is a percentage (from 0 to 100) that dictates the proportion of control visits.
+
 ```bash
-python -m demos.2_oba_crawler_load_experiment_demo
+python -m demos.1_create_experiment_demo
 ```
 
-- TO RUN IN MACOS:
-    
-    ```bash
-    OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES python -m demos.2_oba_crawler_load_experiment_demo
-    ```
-#### 3.c
+#### 3.2 Load experiment demo
+Demo on how to load an experiment instance previously created with the `OBAMeasurementExperiment` class, loading its saved browser profile to resume the same experiment instance.
+ 
+```bash
+python -m demos.2_load_experiment_demo
+```
+
+#### 3.3 Data processing demo
+Demo on how to filter, process, and categorize all the AdURLs captured during the control visits of an experiment instance using the `DataProcesser` class.
+
 ```bash
 python -m demos.3_data_processer_demo
 ```
 
-#### 3.d
+#### 3.4 Ads Analysis example demo
+Demo on what an ad analysis script could look like, using the `ExperimentMetrics` class, which includes some example methods to query, tabulate, and plot an experiment ads data.
+
 ```bash
 python -m demos.4_ads_analysis_demo
+```
+
+#### Ad Extraction command demo
+To crawl and extract ads from any website without going through all the process of an OpenOBA framework experiment, you can call the `ExtractAdsCommand` as any OpenWPM command would do. We have published a demo on how to use this command similar to OpenWPM's [demo](https://github.com/openwpm/OpenWPM/blob/master/demo.py).
+
+```bash
+python -m openoba_adscraper_demo
+```
+
+#### Youtube ads extraction demo
+Ads from Youtube videos could be extracted, if the browser's autoplay is enabled. Else, the browser display mode has to be `"native"` for the crawl so the user can manually play each video before the `ExtractAdsCommand` is executed. This does not work flawlessly so expect to encounter difficulties.
+
+```bash
+python -m demos.youtube_crawler_demo
 ```
 
 #### Errors

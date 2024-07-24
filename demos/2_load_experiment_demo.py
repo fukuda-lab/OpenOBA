@@ -8,4 +8,4 @@ test_fashion_experiment = OBAMeasurementExperiment(
     # browser_display_mode="native",
 )
 
-test_fashion_experiment.start(minutes=20)
+test_fashion_experiment.start(minutes=30, control_visits_rate=50)
