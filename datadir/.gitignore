@@ -2,3 +2,11 @@
 *
 # Except this file
 !.gitignore
+
+# And these directories
+!style_and_fashion_experiment_accept/
+!style_and_fashion_experiment_accept/*
+!style_and_fashion_experiment_reject/
+!style_and_fashion_experiment_reject/*
+!style_and_fashion_experiment_do_nothing/
+!style_and_fashion_experiment_do_nothing/*

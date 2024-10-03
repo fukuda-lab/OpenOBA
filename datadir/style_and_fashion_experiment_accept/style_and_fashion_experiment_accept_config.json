@@ -1,0 +1,56 @@
+{
+    "experiment_name": "style_and_fashion_experiment_accept",
+    "cookie_banner_action": 1,
+    "training_pages_list": [
+        "http://temu.com",
+        "http://fashionnova.com",
+        "http://vogue.com",
+        "http://elle.com",
+        "http://adidas.com",
+        "http://zara.com",
+        "http://victoriassecret.com",
+        "http://therealreal.com",
+        "http://kufar.by",
+        "http://wish.com",
+        "http://lacoste.com",
+        "http://elle.fr",
+        "http://levi.com",
+        "http://yoox.com",
+        "http://michaelkors.com",
+        "http://jcrew.com",
+        "http://instyle.com",
+        "http://intersport.fr",
+        "http://guess.eu",
+        "http://dsw.com",
+        "http://born2be.pl",
+        "http://cottonon.com"
+    ],
+    "browser_ids": {
+        "oba": [
+            2902477846,
+            505764208,
+            602318429,
+            2186715125,
+            1686948626,
+            575187525,
+            3282406616,
+            2674878447
+        ],
+        "clear": [
+            3116123078,
+            2584548187,
+            3450407630,
+            2030248409,
+            2533692204,
+            3287272784,
+            3809923745,
+            2822349904
+        ]
+    },
+    "pages_categorized": true,
+    "custom_pages": false,
+    "training_pages_handler": {
+        "list_id": "V929N",
+        "n_pages": 10000
+    }
+}
